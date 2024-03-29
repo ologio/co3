@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "co3"
+version = "0.1.1"
+authors = [
+  { name="Sam Griesemer", email="samgriesemer@gmail.com" },
+]
+description = "Lightweight ORM"
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "tqdm"
+]
+
+[tool.setuptools.packages.find]
+#where = ["localsys"] # this is too deeply nested, need to remain at root level & use
+#include; by default, `where` is `.`
+include = ["co3*"] # pattern to match package names 
+

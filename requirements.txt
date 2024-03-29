@@ -1,0 +1,8 @@
+# -- sphinx docs --
+sphinx
+sphinx-togglebutton
+furo
+myst-parser
+
+sqlalchemy
+numpy
