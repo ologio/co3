@@ -29,12 +29,13 @@ from uuid import uuid4
 import sqlalchemy as sa
 
 from co3 import util
+from co3.component import Component
 #from localsys.db.schema import tables
 
 
 logger = logging.getLogger(__name__)
 
-class Collector:
+class Collector[C: Component, M: 'Mapper[C]']:
     def __init__(self):
         self._inserts = defaultdict(lambda: defaultdict(list))
 

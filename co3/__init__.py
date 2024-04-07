@@ -93,17 +93,19 @@ Note: Organization for inheritance over composition
 '''
 
 from co3.accessor  import Accessor
-from co3.co3       import CO3
+from co3.co3       import CO3, collate
 from co3.collector import Collector
 from co3.composer  import Composer
 from co3.database  import Database
 from co3.indexer   import Indexer
 from co3.manager   import Manager
 from co3.mapper    import Mapper
-from co3.relation  import Relation
+from co3.component import Component
+from co3.schema    import Schema
 
 from co3 import accessors
 from co3 import databases
 from co3 import managers
-from co3 import relations
+from co3 import components
+from co3 import schemas
 from co3 import util

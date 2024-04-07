@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 def collate(action_key, action_groups=None):
     def decorator(func):
+        nonlocal action_groups
+        
         if action_groups is None:
             action_groups = [None]
         func._action_data = (action_key, action_groups)

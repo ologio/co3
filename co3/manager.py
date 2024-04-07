@@ -7,10 +7,11 @@ interacting with an underlying database, like inserts and schema recreation.
 from pathlib import Path
 from abc import ABCMeta, abstractmethod
 
+from co3.schema import Schema
 #from co3.database import Database
 
 
-class Manager[D: 'Database'](metaclass=ABCMeta):
+class Manager[C: Component, D: 'Database[C]'](metaclass=ABCMeta):
     '''
     Management wrapper class for table groupings.
 
@@ -22,7 +23,7 @@ class Manager[D: 'Database'](metaclass=ABCMeta):
         self.database = database
 
     @abstractmethod
-    def recreate(self):
+    def recreate(self, schema: Schema[C]):
         raise NotImplementedError
 
     @abstractmethod

@@ -1,3 +1,42 @@
+'''
+Design proposal: variable backends
+
+One particular feature not supported by the current type hierarchy is the possible use of
+different backends to implement a general interface like SQLAccessor. One could imagine,
+for instance, using `sqlalchemy` or `sqlite` to define the same methods laid out in a
+parent class blueprint. It's not too difficult to imagine cases where both of these may be
+useful, but for now it is outside the development scope. Should it ever enter the scope,
+however, we might consider a simple `backend` argument on instantiation, keeping just the
+SQLAccessor exposed rather than a whole set of backend-specific types:
+
+```py
+class SQLAlchemyAccessor(RelationalAccessor): # may also inherit from a dedicated interface parent
+    def select(...):
+        ...
+
+class SQLiteAccessor(RelationalAccessor): 
+    def select(...):
+        ...
+
+class SQLAccessor(RelationalAccessor): 
+    backends = {
+        'sqlalchemy': SQLAlchemyAccessor,
+        'sqlite':     SQLteAccessor,
+    }
+
+    def __init__(self, backend: str):
+        self.backend = self.backends.get(backend)
+
+    def select(...):
+        return self.backend.select(...)
+
+```
+
+For now, we can look at SQLAccessor (and equivalents in other type hierarchies, like
+SQLManagers) as being SQLAlchemyAccessors and not supporting any backend swapping. But in
+theory, to make the above change, we'd just need to rename it and wrap it up.
+'''
+
 from pathlib import Path
 from collections.abc import Iterable
 import inspect
@@ -7,21 +46,44 @@ import sqlalchemy as sa
 
 from co3 import util
 from co3.accessor import Accessor
-from co3.relation import Relation
-
-#from co3.databases.sql import RelationalDatabase, TabularDatabase, SQLDatabase
-from co3.relations import TabularRelation, SQLTable
+from co3.components import Relation, SQLTable
 
 
-class RelationalAccessor[D: 'RelationalDatabase', R: Relation](Accessor[D]):
-    pass
+class RelationalAccessor[R: Relation, D: 'RelationalDatabase[R]'](Accessor[R, D]):
+    def raw_select(self, sql: str):
+        raise NotImplementedError
+
+    def select(
+        self,
+        relation: R,
+        cols         = None,
+        where        = None,
+        distinct_on  = None,
+        order_by     = None,
+        limit        = 0,
+    ):
+        raise NotImplementedError
+
+    def select_one(
+        self,
+        relation     : R,
+        cols                = None,
+        where               = None,
+        mappings     : bool = False,
+        include_cols : bool = False,
+    ):
+        res = self.select(relation, cols, where, mappings, include_cols, limit=1)
+
+        if include_cols and len(res[0]) > 0:
+            return res[0][0], res[1]
+
+        if len(res) > 0:
+            return res[0]
+
+        return None
 
 
-class TabularAccessor[D: 'TabularDatabase', R: TabularRelation](RelationalAccessor[D, R]):
-    pass
-
-
-class SQLAccessor(TabularAccessor['SQLDatabase', SQLTable]):
+class SQLAccessor(RelationalAccessor[SQLTable, 'SQLDatabase[SQLTable]']):
     def raw_select(
         self,
         sql,
@@ -37,7 +99,7 @@ class SQLAccessor(TabularAccessor['SQLDatabase', SQLTable]):
 
     def select(
         self,
-        table: sa.Table | sa.Subquery | sa.Join,
+        table: SQLTable,
         cols         = None,
         where        = None,
         distinct_on  = None,
@@ -82,15 +144,3 @@ class SQLAccessor(TabularAccessor['SQLDatabase', SQLTable]):
             stmt = stmt.limit(limit)
 
         return res_method(self.engine, stmt, include_cols=include_cols)
-
-    def select_one(self, table, cols=None, where=None, mappings=False, include_cols=False):
-        res = self.select(table, cols, where, mappings, include_cols, limit=1)
-
-        if include_cols and len(res[0]) > 0:
-            return res[0][0], res[1]
-
-        if len(res) > 0:
-            return res[0]
-
-        return None
-

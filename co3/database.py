@@ -21,9 +21,9 @@ from co3.indexer  import Indexer
 logger = logging.getLogger(__name__)
 
 
-class Database:
-    accessor: type[Accessor[Self]] = Accessor
-    manager:  type[Manager[Self]]  = Manager
+class Database[C: Component]:
+    accessor: type[Accessor[C, Self]] = Accessor[C, Self]
+    manager:  type[Manager[C, Self]]  = Manager[C, Self]
 
     def __init__(self, resource):
         '''

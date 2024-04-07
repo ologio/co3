@@ -26,7 +26,7 @@ class ExampleComposer(Composer):
 '''
 from pathlib import Path
 
-from co3.mapper import Mapper
+from co3.component import Component
 
 
 def register_table(table_name=None):
@@ -43,7 +43,7 @@ def register_table(table_name=None):
         return func
     return decorator
 
-class Composer[M: Mapper]:
+class Composer[C: Component, M: 'Mapper[C]']:
     '''
     Base composer wrapper for table groupings.
 

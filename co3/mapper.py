@@ -18,27 +18,56 @@ mapper.attach(
     }
 )
 '''
+from typing import Callable, Self
 from collections import defaultdict
 
-from co3.co3 import CO3
-from co3.relation import Relation
+from co3.co3       import CO3
+from co3.collector import Collector
+from co3.composer  import Composer
+from co3.component import Component
+from co3.schema    import Schema
 
 
-class Mapper[R: Relation]:
+class Mapper[C: Component]:
     '''
     Mapper base class for housing schema components and managing relationships between CO3
-    types and storage targets (of type R).
+    types and storage components (of type C).
     '''
-    def __init__(self):
-        self.attribute_comps:  dict[CO3, R] = {}
-        self.collation_groups: dict[CO3, dict[str|None, R]] = defaultdict(dict)
+    _collector_cls: type[Collector[C, Self]] = Collector[C, Self]
+    _composer_cls:  type[Composer[C, Self]]  = Composer[C, Self]
+
+    def __init__(self, co3_root: type[CO3], schema: Schema):
+        self.co3_root = co3_root
+        self.schema   = schema
+
+        self.collector = self._collector_cls()
+        self.composer  = self._composer_cls()
+
+        self.attribute_comps:  dict[type[CO3], C] = {}
+        self.collation_groups: dict[type[CO3], dict[str|None, C]] = defaultdict(dict)
+
+    def _check_component(self, comp: C | str):
+        if type(comp) is str:
+            comp_key = comp
+            comp = self.schema.get_component(comp_key)
+            if comp is None:
+                raise ValueError(
+                    f'Component key {comp_key} not available in attached schema'
+                )
+        else:
+            if comp not in self.schema:
+                raise TypeError(
+                    f'Component {comp} not registered to Mapper schema {self.schema}'
+                )
+
+        return comp
 
     def attach(
         self,
-        type_ref    : CO3,
-        attr_comp   : R,
-        coll_comp   : R | None            = None,
-        coll_groups : dict[str | None, R] = None
+        type_ref    : type[CO3],
+        attr_comp   : C | str,
+        coll_comp   : C | str | None      = None,
+        coll_groups : dict[str | None, C | str] = None
     ) -> None:
         '''
         Parameters:
@@ -49,24 +78,33 @@ class Mapper[R: Relation]:
             coll_groups: storage components for named collation groups; dict mapping group
                          names to components
         '''
+        # check for type compatibility with CO3 root
+        if not issubclass(type_ref, self.co3_root):
+            raise TypeError(
+                f'Type ref {type_ref} not a subclass of Mapper CO3 root {self.co3_root}'
+            )
+
+        # check attribute component in registered schema
+        attr_comp = self._check_component(attr_comp)
         self.attribute_comps[type_ref] = attr_comp
 
+        # check default component in registered schema
         if coll_comp is not None:
-            self.collation_groups[type_ref][None] = attr_comp
+            coll_comp = self._check_component(coll_comp)
+            self.collation_groups[type_ref][None] = coll_comp
 
+        # check if any component in group dict not in registered schema
         if coll_groups is not None:
-            self.collation_groups[type_ref].update(attr_comp)
+            for coll_key in coll_groups:
+                coll_groups[coll_key] = self._check_component(coll_groups[coll_key])
 
-    def join_attribute_relations(self, r1: R, r2: R) -> R:
-        '''
-        Specific mechanism for joining attribute-based relations.
-        '''
-        pass
+            self.collation_groups[type_ref].update(coll_groups)
 
-    def join_collation_relations(self, r1: R, r2: R) -> R:
-        '''
-        Specific mechanism for joining collation-based relations.
-        '''
+    def attach_hierarchy(
+        self,
+        type_ref: type[CO3],
+        obj_name_map: Callable[[type[CO3]], str],
+    ):
         pass
 
     def get_connective_data(
@@ -84,13 +122,13 @@ class Mapper[R: Relation]:
         '''
         return {}
 
-    def get_attribute_comp(self, type_ref: CO3) -> R | None:
+    def get_attribute_comp(self, type_ref: CO3) -> C | None:
         return self.attribute_comps.get(type_ref, None)
 
-    def get_collation_comp(self, type_ref: CO3, group=str | None) -> R | None:
+    def get_collation_comp(self, type_ref: CO3, group=str | None) -> C | None:
         return self.collation_group.get(type_ref, {}).get(group, None)
 
-    def collect(self, collector, mapper, action_keys=None) -> dict:
+    def collect(self, obj, action_keys=None) -> dict:
         '''
         Stages inserts up the inheritance chain, and down through components.
 
@@ -105,38 +143,38 @@ class Mapper[R: Relation]:
         Returns: dict with keys and values relevant for associated SQLite tables
         '''
         if action_keys is None:
-            action_keys = list(self.action_map.keys())
+            action_keys = list(obj.action_map.keys())
 
         receipts = []
-        for _cls in reversed(self.__class__.__mro__[:-2]):
-            attribute_component = mapper.get_attribute_comp(_cls)
+        for _cls in reversed(obj.__class__.__mro__[:-2]):
+            attribute_component = self.get_attribute_comp(_cls)
 
             # require an attribute component for type consideration
             if attribute_component is None:
                 continue
 
-            collector.add_insert(
+            self.collector.add_insert(
                 attribute_component,
-                self.attributes,
+                obj.attributes,
                 receipts=receipts,
             )
 
             for action_key in action_keys:
-                collation_data = self.collate(action_key)
+                collation_data = obj.collate(action_key)
 
                 # if method either returned no data or isn't registered, ignore
                 if collation_data is None:
                     continue
 
-                _, action_groups = self.action_map[action_key]
+                _, action_groups = obj.action_map[action_key]
                 for action_group in action_groups:
-                    collation_component = mapper.get_collation_comp(_cls, group=action_group)
+                    collation_component = self.get_collation_comp(_cls, group=action_group)
 
                     if collation_component is None:
                         continue
 
                     # gather connective data for collation components
-                    connective_data = mapper.get_connective_data(self, action_key, action_group)
+                    connective_data = self.get_connective_data(_cls, action_key, action_group)
 
                     collector.add_insert(
                         collation_component,
@@ -153,56 +191,3 @@ class Mapper[R: Relation]:
 
         return receipts
 
-    @classmethod
-    def compose(cls, outer=False, conversion=False, full=False):
-        '''
-        Note:
-            Comparing to ORM, this method would likely also still be needed, since it may
-            not be explicitly clear how some JOINs should be handled up the inheritance
-            chain (for components / sa.Relationships, it's a little easier).
-
-        Parameters:
-            outer: whether to use outer joins down the chain
-            conversion: whether to return conversion joins or base primitives
-            full: whether to return fully connected primitive and conversion table
-        '''
-        def join_builder(outer=False, conversion=False):
-            head_table = None
-            last_table = None
-            join_table = None
-
-            for _cls in reversed(cls.__mro__[:-2]):
-                table_str    = None
-                table_prefix = _cls.table_prefix
-
-                if conversion: table_str = f'{table_prefix}_conversions'
-                else:          table_str = f'{table_prefix}s'
-
-                if table_str not in tables.table_map:
-                    continue
-
-                table = tables.table_map[table_str]
-
-                if join_table is None:
-                    head_table = table
-                    join_table = table
-                else:
-                    if conversion:
-                        join_condition = last_table.c.name_fmt == table.c.name_fmt
-                    else:
-                        join_condition = last_table.c.name == table.c.name
-
-                    join_table = join_table.join(table, join_condition, isouter=outer)
-
-                last_table = table
-
-            return join_table, head_table
-
-        if full:
-            # note how the join isn't an OUTER join b/w the two
-            core, core_h = join_builder(outer=outer, conversion=False)
-            conv, conv_h = join_builder(outer=outer, conversion=True)
-            return core.join(conv, core_h.c.name == conv_h.c.name)
-
-        join_table, _ = join_builder(outer=outer, conversion=conversion)
-        return join_table

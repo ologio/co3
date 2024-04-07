@@ -48,26 +48,21 @@ import sqlalchemy as sa
 from tqdm.auto import tqdm
 
 from co3 import util
-
+from co3.schema import Schema
 from co3.manager import Manager
-from co3.relation import Relation
-#from co3.databases import SQLDatabase
+from co3.components import Relation, SQLTable
+
 #from localsys.reloader.router._base import ChainRouter, Event
-from co3.relations import TabularRelation, SQLTable
 
 
 logger = logging.getLogger(__name__)
 
 
-class RelationalManager[D: 'RelationalDatabase', R: Relation](Manager[D]):
+class RelationalManager[R: Relation, D: 'RelationalDatabase[R]'](Manager[R, D]):
     pass
 
 
-class TabularManager[D: 'TabularDatabase', R: TabularRelation](RelationalManager[D, R]):
-    pass
-
-
-class SQLManager(TabularManager['SQLDatabase', SQLTable]):
+class SQLManager(RelationalManager[SQLTable, 'SQLDatabase[SQLTable]']):
     '''
     Core schema table manager. Exposes common operations and facilitates joint operations
     needed for highly connected schemas.
@@ -80,8 +75,6 @@ class SQLManager(TabularManager['SQLDatabase', SQLTable]):
     saturates a router with events (dynamically) and sweeps up inserts on session basis
     from an attached collector.
     '''
-    conversion_formats = ['src', 'html5']
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -99,9 +92,9 @@ class SQLManager(TabularManager['SQLDatabase', SQLTable]):
     def add_router(self, router):
         self.routers.append(router)
 
-    def recreate(self): 
-        tables.metadata.drop_all(self.engine)
-        tables.metadata.create_all(self.engine, checkfirst=True)
+    def recreate(self, schema: Schema[SQLTable]): 
+        schema.metadata.drop_all(self.engine)
+        schema.metadata.create_all(self.engine, checkfirst=True)
 
     def update(self): pass
 

@@ -26,7 +26,13 @@ class Tomato(CO3):
         return self.size / 2
 
 
-tomato_table = sa.Table()
+metadata = sa.MetaData()
+tomato_table = sa.Table(
+    'tomato',
+    metadata,
+    sa.Column('id', sa.Integer, primary_key=True),
+)
+tomato_schema = Schema.from_metadata(metadata)
 
 mapper = Mapper()
 mapper.attach(
@@ -39,6 +45,15 @@ tomato = Tomato(5, False)
 mapper.collect(tomato, for='diced')
 
 db = SQLiteDatabse('resource.sqlite')
+db.recreate(tomato_schema)
+
+# for non-raw DB ops, consider requiring a verify step first. Keeps up integrity between
+# runs
+db.verify(tomato_schema)
+# then
+# not too straightforward, but can also verify mapper compositions if they use a schema
+# that's been verified by the database
+
 db.sync(mapper)
 
 dict_results = db.select(
