@@ -1,0 +1,9 @@
+# generic py
+__pycache__/
+.pytest_cache/
+localsys.egg-info/
+
+# vendor and build files
+dist/
+build/
+docs/sphinx/_build/
