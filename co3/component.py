@@ -14,6 +14,12 @@ class Component[T]:
         self.schema = schema
         schema.add_component(self)
 
+    def __str__(self):
+        return f'<Component ({self.__class__.__name__})> {self.name}'
+
+    def __repr__(self):
+        return f'<Component ({self.__class__.__name__})> {self.name}'
+
     def get_attributes(self):
         raise NotImplementedError
 

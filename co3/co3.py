@@ -9,6 +9,7 @@ managing hierarchical document relations, format conversions, and syntactical co
 
 import inspect
 import logging
+from collections import defaultdict
 from functools import wraps, partial
 
 #from localsys.db.schema import tables
@@ -40,6 +41,17 @@ def collate(action_key, action_groups=None):
 class FormatRegistryMeta(type):
     def __new__(cls, name, bases, attrs):
         action_registry = {}
+        group_registry  = defaultdict(list)
+
+        def register_action(method):
+            nonlocal action_registry, group_registry
+
+            if hasattr(method, '_action_data'):
+                action_key, action_groups = method._action_data
+                action_registry[action_key] = (method, action_groups)
+
+                for action_group in action_groups:
+                    group_registry[action_group].append(action_key)
 
         # add registered superclass methods; iterate over bases (usually just one), then
         # that base's chain down (reversed), then methods from each subclass
@@ -47,18 +59,15 @@ class FormatRegistryMeta(type):
             for _class in reversed(base.mro()):
                 methods = inspect.getmembers(_class, predicate=inspect.isfunction)
                 for _, method in methods:
-                    if hasattr(method, '_action_data'):
-                        action_key, action_groups = method._action_data
-                        action_registry[action_key] = (method, action_groups)
+                    register_action(method)
 
         # add final registered formats for the current class, overwriting any found in
         # superclass chain
         for attr_name, attr_value in attrs.items():
-            if hasattr(attr_value, '_action_data'):
-                action_key, action_groups = attr_value._action_data
-                action_registry[action_key] = (method, action_groups)
+            register_action(attr_value)
 
-        attrs['action_map'] = action_registry
+        attrs['action_registry'] = action_registry
+        attrs['group_registry']  = group_registry
 
         return super().__new__(cls, name, bases, attrs)
 
@@ -98,11 +107,25 @@ class CO3(metaclass=FormatRegistryMeta):
         '''
         return []
 
+    def collation_attributes(self, action_key, action_group):
+        '''
+        Return "connective" collation component data, possibly dependent on
+        instance-specific attributes and the action arguments. This is typically the
+        auxiliary structure that may be needed to attach to responses from registered
+        `collate` calls to complete inserts.
+
+        Note: this method is primarily used by `Mapper.collect()`, and is called just
+        prior to collector send-off for collation inserts and injected alongside collation
+        data. Common structure in collation components can make this function easy to
+        define, independent of action group for instance.
+        '''
+        return {}
+
     def collate(self, action_key, *action_args, **action_kwargs):
-        if action_key not in self.action_map:
+        if action_key not in self.action_registry:
             logger.debug(f'Collation for {action_key} not supported')
             return None
         else:
-            return self.action_map[action_key](self)
+            return self.action_registry[action_key][0](self)
 
 

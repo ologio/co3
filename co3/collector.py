@@ -29,32 +29,42 @@ from uuid import uuid4
 import sqlalchemy as sa
 
 from co3 import util
+from co3.schema import Schema
 from co3.component import Component
-#from localsys.db.schema import tables
 
 
 logger = logging.getLogger(__name__)
 
 class Collector[C: Component, M: 'Mapper[C]']:
-    def __init__(self):
+    def __init__(self, schema: Schema[C]):
+        self.schema = schema
+
         self._inserts = defaultdict(lambda: defaultdict(list))
 
     @property
     def inserts(self):
         return self._inserts_from_receipts()
 
-    def _inserts_from_receipts(self, receipts=None, pop=False):
+    def _inserts_from_receipts(self, receipts: list=None, pop=False):
+        '''
+        Group up added inserts by Component, often to be used directly for bulk insertion.
+        Optionally provide a list of `receipts` to group up only the corresponding subset of
+        inserts, and `pop` to remove encountered receipts from the internal store.
+        '''
         inserts = defaultdict(list)
         
         if receipts is None:
             receipts = list(self._inserts.keys())
 
         for receipt in receipts:
-            if pop: insert_dict = self._inserts.pop(receipt, {})
-            else:   insert_dict = self._inserts[receipt]
+            if pop:
+                receipt_tuple = self._inserts.pop(receipt, None)
+            else:
+                receipt_tuple = self._inserts.get(receipt, None)
 
-            for table, insert_list in insert_dict.items():
-                inserts[table].extend(insert_list)
+            if receipt_tuple is not None:
+                component, insert_data = receipt_tuple
+                inserts[component].append(insert_data)
 
         return dict(inserts)
 
@@ -62,24 +72,33 @@ class Collector[C: Component, M: 'Mapper[C]']:
         self._inserts = defaultdict(lambda: defaultdict(list))
 
     def _generate_unique_receipt(self):
-        return str(uuid4())
+        receipt = str(uuid4())
+        while receipt in self._inserts:
+            receipt = str(uuid4())
 
-    def add_insert(self, table_name, insert_dict, receipts=None):
+        return receipt
+
+    def add_insert(
+        self,
+        component   : C,
+        insert_data : dict,
+        receipts    : list | None = None,
+    ):
         '''
-        TODO: formalize table_name mapping; at class level provide a `table_map`, or provide
-        the table object itself to this method
+        Parameters:
+            component:   Component from registered schema
+            insert_data: dict with (possibly raw/incomplete) insert data
+            receipts:    optional list to which generated receipt should be appended.
+                         Accommodates the common receipt list aggregation pattern.
         '''
-        if table_name not in tables.table_map:
+        if component not in self.schema:
             #logger.debug(f'Inserts provided for non-existent table {table_name}')
             return None
 
         receipt = self._generate_unique_receipt()
-
-        self._inserts[receipt][table_name].append(
-            utils.db.prepare_insert(
-                tables.table_map[table_name], 
-                insert_dict
-            )
+        self._inserts[receipt] = (
+            component,
+            component.prepare_insert_data(insert_data),
         )
 
         if receipts is not None:

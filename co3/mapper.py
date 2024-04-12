@@ -11,12 +11,23 @@ mapper = Mapper[sa.Table]()
 
 mapper.attach(
     Type,
-    attributes=TypeTable,
-    collation=CollateTable,
-    collation_groups={
+    attr_comp=TypeTable,
+    coll_comp=CollateTable,
+    coll_groups={
         'name': NameConversions
     }
 )
+
+Development log:
+    - Overruled design decision: Mappers were previously designed to map from a specific
+      CO3 hierarchy to a specific Schema. The intention was to allow only related types to
+      be attached to a single schema, at least under a particular Mapper. The type
+      restriction has since been removed, however, as it isn't particularly well-founded.
+      During `collect()`, a particular instance collects data from both its attributes and
+      its collation actions. It then repeats the same upward for parent types (part of the
+      same type hierarchy), and down to components (often not part of the same type
+      hierarchy). As such, to fully collect from a type, the Mapper needs to leave
+      registration open to various types, not just those part of the same hierarchy.
 '''
 from typing import Callable, Self
 from collections import defaultdict
@@ -32,15 +43,34 @@ class Mapper[C: Component]:
     '''
     Mapper base class for housing schema components and managing relationships between CO3
     types and storage components (of type C).
+
+    Mappers are responsible for two primary tasks:
+
+    1. Attaching CO3 types to database Components from within a single schema
+    2. Facilitating collection of Component-related insertion data from instances of
+       attached CO3 types
+
+    Additionally, the Mapper manages its own Collector and Composer instances. The
+    Collector receives the inserts from `.collect()` calls, and will subsequently be
+    "dropped off" at an appropriate Database's Manager to actually perform the requested
+    inserts (hence why we tie Mappers to Schemas one-to-one). 
+
+    Dev note: the Composer needs reconsideration, or at least its positioning directly in
+    this class. It may be more appropriate to have at the Schema level, or even just
+    dissolved altogether if arbitrary named Components can be attached to schemas.
     '''
     _collector_cls: type[Collector[C, Self]] = Collector[C, Self]
     _composer_cls:  type[Composer[C, Self]]  = Composer[C, Self]
 
-    def __init__(self, co3_root: type[CO3], schema: Schema):
-        self.co3_root = co3_root
-        self.schema   = schema
+    def __init__(self, schema: Schema[C]):
+        '''
+        Parameters:
+            schema: Schema object holding the set of components eligible as attachment
+                    targets for registered CO3 types
+        '''
+        self.schema = schema
 
-        self.collector = self._collector_cls()
+        self.collector = self._collector_cls(schema)
         self.composer  = self._composer_cls()
 
         self.attribute_comps:  dict[type[CO3], C] = {}
@@ -78,12 +108,6 @@ class Mapper[C: Component]:
             coll_groups: storage components for named collation groups; dict mapping group
                          names to components
         '''
-        # check for type compatibility with CO3 root
-        if not issubclass(type_ref, self.co3_root):
-            raise TypeError(
-                f'Type ref {type_ref} not a subclass of Mapper CO3 root {self.co3_root}'
-            )
-
         # check attribute component in registered schema
         attr_comp = self._check_component(attr_comp)
         self.attribute_comps[type_ref] = attr_comp
@@ -100,35 +124,54 @@ class Mapper[C: Component]:
 
             self.collation_groups[type_ref].update(coll_groups)
 
-    def attach_hierarchy(
+    def attach_many(
         self,
-        type_ref: type[CO3],
-        obj_name_map: Callable[[type[CO3]], str],
+        type_list: list[type[CO3]],
+        attr_name_map: Callable[[type[CO3]], str],
+        coll_name_map: Callable[[type[CO3], str|None], str] | None = None,
     ):
-        pass
+        '''
+        Auto-register a set of types to the Mapper's attached Schema. Associations are
+        made from types to both attribute and collation component names, through
+        `attr_name_map` and `coll_name_map`, respectively. Collation targets are inferred
+        through the registered groups in each type.
 
-    def get_connective_data(
+        Parameters:
+            type_ref:      reference to CO3 type
+            attr_name_map: function mapping from types/classes to attribute component names
+                           in the attached Mapper Schema
+            coll_name_map: function mapping from types/classes & action groups to
+                           collation component names in the attached Mapper Schema. `None`
+                           is passed as the action group to retrieve the default
+                           collection target.
+        '''
+        for _type in type_list:
+            attr_comp = attr_name_map(_type)
+            coll_groups = {}
+            for action_group in _type.group_registry:
+                coll_groups[action_group] = coll_name_map(_type, action_group)
+
+            self.attach(_type, attr_comp, coll_groups=coll_groups)
+
+    def get_attribute_comp(
         self,
-        type_instance: CO3,
-        action_key,
-        action_group=None,
-    ) -> dict:
-        '''
-        Return data relevant for connecting collation entries to primary storage
-        containers. This is typically some combination of the action key and a unique
-        identifier from the target CO3 instance to form a unique key for inserts from
-        actions. This is called just prior to collector send-off for collation inserts and
-        injected alongside collation data.
-        '''
-        return {}
-
-    def get_attribute_comp(self, type_ref: CO3) -> C | None:
+        type_ref: type[CO3]
+    ) -> C | None:
         return self.attribute_comps.get(type_ref, None)
 
-    def get_collation_comp(self, type_ref: CO3, group=str | None) -> C | None:
-        return self.collation_group.get(type_ref, {}).get(group, None)
+    def get_collation_comp(
+        self,
+        type_ref: type[CO3],
+        group=str | None
+    ) -> C | None:
+        return self.collation_groups.get(type_ref, {}).get(group, None)
 
-    def collect(self, obj, action_keys=None) -> dict:
+    def collect(
+        self,
+        obj: CO3,
+        action_keys: list[str]=None,
+        action_groups: list[str]=None,
+    ) -> list:
         '''
         Stages inserts up the inheritance chain, and down through components.
 
@@ -166,7 +209,7 @@ class Mapper[C: Component]:
                 if collation_data is None:
                     continue
 
-                _, action_groups = obj.action_map[action_key]
+                _, action_groups = obj.action_registry[action_key]
                 for action_group in action_groups:
                     collation_component = self.get_collation_comp(_cls, group=action_group)
 
@@ -174,9 +217,9 @@ class Mapper[C: Component]:
                         continue
 
                     # gather connective data for collation components
-                    connective_data = self.get_connective_data(_cls, action_key, action_group)
+                    connective_data = obj.collation_attributes(action_key, action_group)
 
-                    collector.add_insert(
+                    self.collector.add_insert(
                         collation_component,
                         {
                             **connective_data,
@@ -186,7 +229,7 @@ class Mapper[C: Component]:
                     )
 
         # handle components
-        for comp in self.components:
+        for comp in [c for c in obj.components if isinstance(c, CO3)]:
             receipts.extend(comp.collect(collector, formats=formats))
 
         return receipts

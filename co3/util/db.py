@@ -125,18 +125,6 @@ def sa_exec_explicit(engine, stmt, bind_params=None):
             trans.rollback()  # rollback the transaction explicitly
             raise
 
-def prepare_insert(table, value_dict):
-    '''
-    Modifies insert dictionary with full table column defaults
-    '''
-    insert_dict = get_column_defaults(table)
-    #insert_dict.update(value_dict)
-    insert_dict.update(
-        { k:v for k,v in value_dict.items() if k in insert_dict }
-    )
-
-    return insert_dict
-
 def deferred_fkey(target, **kwargs):
     return sa.ForeignKey(
         target,
@@ -152,27 +140,6 @@ def deferred_cd_fkey(target, **kwargs):
     '''
     return deferred_fkey(target, ondelete='CASCADE', **kwargs)
 
-def get_column_defaults(table, include_all=True):
-    '''
-    Provide column:default pairs for a provided SQLAlchemy table.
-
-    Parameters:
-        table: SQLAlchemy table
-        include_all: whether to include all columns, even those without explicit defaults
-    '''
-    default_values = {}
-    for column in table.columns:
-        if column.default is not None:
-            default_values[column.name] = column.default.arg
-        elif column.nullable:
-            default_values[column.name] = None
-        else:
-            # assume empty string if include_all and col has no explicit default 
-            # and isn't nullable
-            if include_all and column.name != 'id':
-                default_values[column.name] = ''
-
-    return default_values
 
 def get_column_names_str_table(engine, table: str):
     col_sql = f'PRAGMA table_info({table});'

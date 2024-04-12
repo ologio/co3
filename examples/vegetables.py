@@ -1,9 +1,12 @@
+'''
+just remembered tomatos aren't vegetables. whoops
+'''
 import random
 
 import sqlalchemy as sa
 
 from co3.schemas import SQLSchema
-from co3 import CO3, collate
+from co3 import CO3, collate, Mapper
 from co3 import util
 
 
@@ -20,6 +23,12 @@ class Tomato(Vegetable):
     @property
     def attributes(self):
         return vars(self)
+        
+    def collation_attributes(self, action_key, action_grounp):
+        return {
+            'name': self.name,
+            'state': action_key,
+        }
 
     @collate('ripe', action_groups=['aging'])
     def ripen(self):
@@ -39,42 +48,58 @@ class Tomato(Vegetable):
             'pieces': random.randint(2, 12)
         }
 
+type_list = [Vegetable, Tomato]
+
 '''
 VEGETABLE
 |
 TOMATO -- AGING
        |
        -- COOKING
+
+Note: foreign keys need to represent values that could be known by objects _without_ first interacting
+with a DB. This is slightly non-standard, given how common it is to depend on another table's integer ID
+(typically a value assigned by the DB using an autoincrement, for example, and not specified explicitly 
+within the insertion body). As a result, SQLTable components need to be able to operate by another unique
+key when expected to connect to other tables in the hierarchy. Below we use `name` with a UNIQUE constraint
+for this purpose. Note that having an integer `id` is still perfectly okay so that a table can manage
+uniqueness of its own rows by default.
 '''
 metadata = sa.MetaData()
 vegetable_table = sa.Table(
     'vegetable',
     metadata,
     sa.Column('id',    sa.Integer, primary_key=True),
-    sa.Column('name',  sa.String),
+    sa.Column('name',  sa.String, unique=True),
+    
     sa.Column('color', sa.String),
 )
 tomato_table = sa.Table(
     'tomato',
     metadata,
     sa.Column('id',   sa.Integer, primary_key=True),
-    sa.Column('vegetable_id',   sa.Integer, util.db.deferred_cd_fkey('vegetables.id')),
+    sa.Column('name', sa.String, util.db.deferred_cd_fkey('vegetable.name'), unique=True),
+    
     sa.Column('radius', sa.Integer),
 )
 tomato_aging_table = sa.Table(
     'tomato_aging_states',
     metadata,
     sa.Column('id',   sa.Integer, primary_key=True),
-    sa.Column('vegetable_id',   sa.Integer, util.db.deferred_cd_fkey('vegetables.id')),
+    sa.Column('name', sa.String, util.db.deferred_cd_fkey('tomato.name'), unique=True),
+    
     sa.Column('state', sa.String),
-    sa.Column('age', sa.Integer),
+    sa.Column('age',   sa.Integer),
 )
 tomato_cooking_table = sa.Table(
     'tomato_cooking_states',
     metadata,
     sa.Column('id',   sa.Integer, primary_key=True),
-    sa.Column('vegetable_id',   sa.Integer, util.db.deferred_cd_fkey('vegetables.id')),
-    sa.Column('state', sa.String),
+    sa.Column('name', sa.String, util.db.deferred_cd_fkey('tomato.name'), unique=True),
+    
+    sa.Column('state',  sa.String),
     sa.Column('pieces', sa.Integer),
 )
 vegetable_schema = SQLSchema.from_metadata(metadata)
+vegetable_mapper = Mapper(vegetable_schema)
+

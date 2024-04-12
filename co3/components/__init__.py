@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 import sqlalchemy as sa
 
-from co3.util.types import TableLike
+from co3.util.types import SQLTableLike
 from co3.component import Component
 
 
@@ -54,14 +54,46 @@ class Relation[T](ComposableComponent[T]):
     ):
         return self
 
-class SQLTable(Relation[TableLike]):
+class SQLTable(Relation[SQLTableLike]):
     @classmethod
     def from_table(cls, table: sa.Table, schema: 'SQLSchema'):
         return cls(table.name, table, schema)
 
-    def get_attributes(self):
+    def get_attributes(self) -> tuple:
         return tuple(self.obj.columns)
 
+    def get_column_defaults(self, include_all=True):
+        '''
+        Provide column:default pairs for a provided SQLAlchemy table.
+
+        Parameters:
+            table: SQLAlchemy table
+            include_all: whether to include all columns, even those without explicit defaults
+        '''
+        default_values = {}
+        for column in self.get_attributes():
+            if column.default is not None:
+                default_values[column.name] = column.default.arg
+            elif column.nullable:
+                default_values[column.name] = None
+            else:
+                # assume empty string if include_all and col has no explicit default 
+                # and isn't nullable
+                if include_all and column.name != 'id':
+                    default_values[column.name] = ''
+
+        return default_values
+
+    def prepare_insert_data(self, insert_data: dict) -> dict:
+        '''
+        Modifies insert dictionary with full table column defaults
+        '''
+        insert_dict = self.get_column_defaults()
+        insert_dict.update(
+            { k:v for k,v in insert_data.items() if k in insert_dict }
+        )
+
+        return insert_dict
 
 # key-value stores
 class Dictionary(Relation[dict]):
