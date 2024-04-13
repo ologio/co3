@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from co3.component import Component
 
 
-class Accessor[C: Component, D: 'Database[C]'](metaclass=ABCMeta):
+class Accessor[C: Component](metaclass=ABCMeta):
     '''
     Access wrapper class for complex queries and easy integration with Composer tables.
     Implements high-level access to things like common constrained SELECT queries.
@@ -24,6 +24,20 @@ class Accessor[C: Component, D: 'Database[C]'](metaclass=ABCMeta):
         engine: SQLAlchemy engine to use for queries. Engine is initialized dynamically as
                 a property (based on the config) if not provided
     '''
-    def __init__(self, database: D):
-        self.database = database
+    @abstractmethod
+    def raw_select(
+        self,
+        connection,
+        text: str,
+    ):
+        raise NotImplementedError
 
+    @abstractmethod
+    def select(
+        self,
+        connection,
+        component: C,
+        *args,
+        **kwargs
+    ):
+        raise NotImplementedError

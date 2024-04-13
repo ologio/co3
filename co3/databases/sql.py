@@ -1,27 +1,27 @@
-from typing import Self
-
-from co3.database import Database
+from co3.database import Database, Engine
 
 from co3.accessors.sql import RelationalAccessor, SQLAccessor
 from co3.managers.sql  import RelationalManager,  SQLManager
 
+from co3.engines import SQLEngine
 from co3.components import Relation, SQLTable
 
 
-class RelationalDatabase[R: Relation](Database):
+class RelationalDatabase[C: RelationR](Database):
     '''
     accessor/manager assignments satisfy supertype's type settings;
-    `TabluarAccessor[Self, R]` is of type `type[RelationalAccessor[Self, R]]`
+    `TabluarAccessor[Self, C]` is of type `type[RelationalAccessor[Self, C]]`
     (and yes, `type[]` specifies that the variable is itself being set to a type or a
     class, rather than a satisfying _instance_)
     '''
-    accessor: type[RelationalAccessor[Self, R]] = RelationalAccessor[Self, R]
-    manager:  type[RelationalManager[Self, R]]  = RelationalManager[Self, R]
+    _accessor_cls: type[RelationalAccessor[C]] = RelationalAccessor[C]
+    _manager_cls:  type[RelationalManager[C]]  = RelationalManager[C]
 
 
-class SQLDatabase[R: SQLTable](RelationalDatabase[R]):
-    accessor = SQLAccessor
-    manager  = SQLManager
+class SQLDatabase[C: SQLTable](RelationalDatabase[C]):
+    _accessor_cls = SQLAccessor
+    _manager_cls  = SQLManager
+    _engine_cls   = SQLEngine
 
 
 class SQLiteDatabase(SQLDatabase[SQLTable]):

@@ -43,7 +43,7 @@ def register_table(table_name=None):
         return func
     return decorator
 
-class Composer[C: Component, M: 'Mapper[C]']:
+class Composer[C: Component]:
     '''
     Base composer wrapper for table groupings.
 

@@ -44,87 +44,6 @@ def named_results(table, results):
         for r in results
     ]
 
-# RAW CURSOR-RESULT MANIPULATION -- SEE SA-PREFIXED METHODS FOR CONN-WRAPPED COUNTERPARTS
-def result_mappings(results):
-    return results.mappings()
-
-def result_mappings_all(results):
-    return result_mappings(results).all()
-
-def result_dicts(results, query_cols=None):
-    '''
-    Parse SQLAlchemy results into Python dicts. Leverages mappings to associate full
-    column name context.
-
-    If `query_cols` is provided, their implicit names will be used for the keys of the
-    returned dictionaries. This information is not available under CursorResults and thus
-    must be provided separately. This will yield results like the following:
-
-    [..., {'table1.col':<value>, 'table2.col':<value>, ...}, ...]
-
-    Instead of the automatic mapping names:
-
-    [..., {'col':<value>, 'col_1':<value>, ...}, ...]
-
-    which can make accessing certain results a little more intuitive. 
-    '''
-    if query_cols:
-        return [
-            { str(c):r[c] for c in query_cols }
-            for r in result_mappings_all(results)
-        ]
-
-    return [dict(r) for r in result_mappings_all(results)]
-
-def sa_execute(engine, stmt, bind_params=None, include_cols=False):
-    '''
-    Simple single-statement execution in a with-block
-    '''
-    with engine.connect() as conn:
-        res = conn.execute(stmt, bind_params)
-
-        if include_cols:
-            cols = list(res.mappings().keys())
-            return res, cols
-
-        return res
-
-def sa_exec_mappings(engine, stmt, bind_params=None, include_cols=False):
-    '''
-    All mappings fetched inside of connect context, safe to access outside
-    '''
-    with engine.connect() as conn:
-        res = conn.execute(stmt, bind_params)
-        mappings = result_mappings_all(res)
-
-        if include_cols:
-            cols = list(res.mappings().keys())
-            return mappings, cols
-
-        return mappings
-
-def sa_exec_dicts(engine, stmt, bind_params=None, include_cols=False):
-    with engine.connect() as conn:
-        res = conn.execute(stmt, bind_params)
-        dicts = result_dicts(res)
-
-        if include_cols:
-            cols = list(res.mappings().keys())
-            return dicts, cols
-
-        return dicts
-
-def sa_exec_explicit(engine, stmt, bind_params=None):
-    with engine.connect() as conn:
-        trans = conn.begin()  # start a new transaction explicitly
-        try:
-            result = conn.execute(stmt, bind_params)
-            trans.commit()  # commit the transaction explicitly
-            return result
-        except:
-            trans.rollback()  # rollback the transaction explicitly
-            raise
-
 def deferred_fkey(target, **kwargs):
     return sa.ForeignKey(
         target,
@@ -139,7 +58,6 @@ def deferred_cd_fkey(target, **kwargs):
     enabled
     '''
     return deferred_fkey(target, ondelete='CASCADE', **kwargs)
-
 
 def get_column_names_str_table(engine, table: str):
     col_sql = f'PRAGMA table_info({table});'

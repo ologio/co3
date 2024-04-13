@@ -29,7 +29,7 @@ Development log:
       hierarchy). As such, to fully collect from a type, the Mapper needs to leave
       registration open to various types, not just those part of the same hierarchy.
 '''
-from typing import Callable, Self
+from typing import Callable
 from collections import defaultdict
 
 from co3.co3       import CO3
@@ -59,8 +59,8 @@ class Mapper[C: Component]:
     this class. It may be more appropriate to have at the Schema level, or even just
     dissolved altogether if arbitrary named Components can be attached to schemas.
     '''
-    _collector_cls: type[Collector[C, Self]] = Collector[C, Self]
-    _composer_cls:  type[Composer[C, Self]]  = Composer[C, Self]
+    _collector_cls: type[Collector[C]] = Collector[C]
+    _composer_cls:  type[Composer[C]]  = Composer[C]
 
     def __init__(self, schema: Schema[C]):
         '''

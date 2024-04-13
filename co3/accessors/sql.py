@@ -45,34 +45,45 @@ from functools import cache
 import sqlalchemy as sa
 
 from co3 import util
+from co3.engines import SQLEngine
 from co3.accessor import Accessor
 from co3.components import Relation, SQLTable
 
 
-class RelationalAccessor[R: Relation, D: 'RelationalDatabase[R]'](Accessor[R, D]):
-    def raw_select(self, sql: str):
+class RelationalAccessor[R: Relation](Accessor[R]):
+    def raw_select(
+        self, 
+        connection,
+        text: str
+    ):
+        connection.exec
         raise NotImplementedError
 
     def select(
         self,
+        connection,
         relation: R,
-        cols         = None,
+        attributes   = None,
         where        = None,
         distinct_on  = None,
         order_by     = None,
         limit        = 0,
+        mappings     : bool = False,
+        include_cols : bool = False,
     ):
         raise NotImplementedError
 
     def select_one(
         self,
+        connection,
         relation     : R,
-        cols                = None,
+        attributes          = None,
         where               = None,
         mappings     : bool = False,
         include_cols : bool = False,
     ):
-        res = self.select(relation, cols, where, mappings, include_cols, limit=1)
+        res = self.select(
+            relation, attributes, where, mappings, include_cols, limit=1)
 
         if include_cols and len(res[0]) > 0:
             return res[0][0], res[1]
@@ -83,7 +94,7 @@ class RelationalAccessor[R: Relation, D: 'RelationalDatabase[R]'](Accessor[R, D]
         return None
 
 
-class SQLAccessor(RelationalAccessor[SQLTable, 'SQLDatabase[SQLTable]']):
+class SQLAccessor(RelationalAccessor[SQLTable]):
     def raw_select(
         self,
         sql,
@@ -99,15 +110,15 @@ class SQLAccessor(RelationalAccessor[SQLTable, 'SQLDatabase[SQLTable]']):
 
     def select(
         self,
-        table: SQLTable,
-        cols         = None,
+        table:       SQLTable,
+        columns      = None,
         where        = None,
         distinct_on  = None,
         order_by     = None,
         limit        = 0,
         mappings     = False,
         include_cols = False,
-    ):
+    ) -> list[dict|sa.Mapping]:
         '''
         Perform a SELECT query against the provided table-like object (see
         `check_table()`).
@@ -122,13 +133,13 @@ class SQLAccessor(RelationalAccessor[SQLTable, 'SQLDatabase[SQLTable]']):
                       (no aggregation methods accepted)
             order_by: column to order results by (can use <col>.desc() to order
                       by descending)
+
+        Returns:
+            Statement results, either as a list of 1) SQLAlchemy Mappings, or 2) converted
+            dictionaries
         '''
         if where is None:
             where = sa.true()
-
-        res_method = utils.db.sa_exec_dicts
-        if mappings:
-            res_method = utils.db.sa_exec_mappings
 
         stmt = sa.select(table).where(where)
         if cols is not None:
@@ -143,4 +154,37 @@ class SQLAccessor(RelationalAccessor[SQLTable, 'SQLDatabase[SQLTable]']):
         if limit > 0:
             stmt = stmt.limit(limit)
 
-        return res_method(self.engine, stmt, include_cols=include_cols)
+        res = SQLEngine._execute(connection, statement, include_cols=include_cols)
+
+        if mappings:
+            return res.mappings().all()
+        else:
+            return self.result_dicts(res)
+
+    @staticmethod
+    def result_dicts(results, query_cols=None):
+        '''
+        Parse SQLAlchemy results into Python dicts. Leverages mappings to associate full
+        column name context.
+
+        If `query_cols` is provided, their implicit names will be used for the keys of the
+        returned dictionaries. This information is not available under CursorResults and thus
+        must be provided separately. This will yield results like the following:
+
+        [..., {'table1.col':<value>, 'table2.col':<value>, ...}, ...]
+
+        Instead of the automatic mapping names:
+
+        [..., {'col':<value>, 'col_1':<value>, ...}, ...]
+
+        which can make accessing certain results a little more intuitive. 
+        '''
+        result_mappings = results.mappings().all()
+
+        if query_cols:
+            return [
+                { str(c):r[c] for c in query_cols }
+                for r in result_mappings
+            ]
+
+        return [dict(r) for r in result_mappings]

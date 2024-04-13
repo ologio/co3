@@ -22,8 +22,6 @@ Note:
 from pathlib import Path
 from collections import defaultdict
 import logging
-import importlib
-import subprocess
 from uuid import uuid4
 
 import sqlalchemy as sa
@@ -35,7 +33,7 @@ from co3.component import Component
 
 logger = logging.getLogger(__name__)
 
-class Collector[C: Component, M: 'Mapper[C]']:
+class Collector[C: Component]:
     def __init__(self, schema: Schema[C]):
         self.schema = schema
 
