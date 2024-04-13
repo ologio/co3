@@ -32,11 +32,11 @@ Development log:
 from typing import Callable
 from collections import defaultdict
 
-from co3.co3       import CO3
-from co3.collector import Collector
-from co3.composer  import Composer
-from co3.component import Component
-from co3.schema    import Schema
+from co3.co3        import CO3
+from co3.schema     import Schema
+from co3.collector  import Collector
+from co3.component  import Component
+from co3.components import ComposableComponent
 
 
 class Mapper[C: Component]:
@@ -59,8 +59,9 @@ class Mapper[C: Component]:
     this class. It may be more appropriate to have at the Schema level, or even just
     dissolved altogether if arbitrary named Components can be attached to schemas.
     '''
+    type comp_spec = str | C
+
     _collector_cls: type[Collector[C]] = Collector[C]
-    _composer_cls:  type[Composer[C]]  = Composer[C]
 
     def __init__(self, schema: Schema[C]):
         '''
@@ -71,12 +72,11 @@ class Mapper[C: Component]:
         self.schema = schema
 
         self.collector = self._collector_cls(schema)
-        self.composer  = self._composer_cls()
 
         self.attribute_comps:  dict[type[CO3], C] = {}
         self.collation_groups: dict[type[CO3], dict[str|None, C]] = defaultdict(dict)
 
-    def _check_component(self, comp: C | str):
+    def _check_component(self, comp: self.comp_spec):
         if type(comp) is str:
             comp_key = comp
             comp = self.schema.get_component(comp_key)
@@ -95,9 +95,9 @@ class Mapper[C: Component]:
     def attach(
         self,
         type_ref    : type[CO3],
-        attr_comp   : C | str,
-        coll_comp   : C | str | None      = None,
-        coll_groups : dict[str | None, C | str] = None
+        attr_comp   : self.comp_spec,
+        coll_comp   : self.comp_spec | None                   = None,
+        coll_groups : dict[str | None, self.comp_spec] | None = None,
     ) -> None:
         '''
         Parameters:
@@ -127,8 +127,8 @@ class Mapper[C: Component]:
     def attach_many(
         self,
         type_list: list[type[CO3]],
-        attr_name_map: Callable[[type[CO3]], str],
-        coll_name_map: Callable[[type[CO3], str|None], str] | None = None,
+        attr_name_map: Callable[[type[CO3]], self.comp_spec],
+        coll_name_map: Callable[[type[CO3], str], self.comp_spec] | None = None,
     ):
         '''
         Auto-register a set of types to the Mapper's attached Schema. Associations are
@@ -148,8 +148,10 @@ class Mapper[C: Component]:
         for _type in type_list:
             attr_comp = attr_name_map(_type)
             coll_groups = {}
-            for action_group in _type.group_registry:
-                coll_groups[action_group] = coll_name_map(_type, action_group)
+
+            if coll_name_map:
+                for action_group in _type.group_registry:
+                    coll_groups[action_group] = coll_name_map(_type, action_group)
 
             self.attach(_type, attr_comp, coll_groups=coll_groups)
 
@@ -162,15 +164,15 @@ class Mapper[C: Component]:
     def get_collation_comp(
         self,
         type_ref: type[CO3],
-        group=str | None
+        group=str | None,
     ) -> C | None:
         return self.collation_groups.get(type_ref, {}).get(group, None)
 
     def collect(
         self,
-        obj: CO3,
-        action_keys: list[str]=None,
-        action_groups: list[str]=None,
+        obj           : CO3,
+        action_keys   : list[str] = None,
+        action_groups : list[str] = None,
     ) -> list:
         '''
         Stages inserts up the inheritance chain, and down through components.
@@ -182,6 +184,11 @@ class Mapper[C: Component]:
             constructed row objects and a sa.Relationship will handle the rest. Granted,
             we don't do a whole lot more here: we just call `collect` over those
             components, adding them to the collector session all the same.
+
+        Parameters:
+            obj: CO3 instance to collect from
+            action_keys: keys for actions to collect from
+            action_group: action group names to run all actions for
 
         Returns: dict with keys and values relevant for associated SQLite tables
         '''
@@ -211,7 +218,7 @@ class Mapper[C: Component]:
 
                 _, action_groups = obj.action_registry[action_key]
                 for action_group in action_groups:
-                    collation_component = self.get_collation_comp(_cls, group=action_group)
+                    collation_component, _ = self.get_collation_comp(_cls, group=action_group)
 
                     if collation_component is None:
                         continue
@@ -234,3 +241,144 @@ class Mapper[C: Component]:
 
         return receipts
 
+
+class ComposableMapper[C: ComposableComponent](Mapper[C]):
+    '''
+    Dev note: class design
+        Heavily debating between multiple possible design approaches here. The main
+        purpose of this subtype is make clear the need for additional compositional
+        mapping details, namely functions that can produce pairwise join conditions for
+        both the attribute tree (vertical traversal) and the collation components
+        (horizontal traversal). Here's a few remarks:
+
+        - I want the necessary maps to provided/stored _outside_ of `compose` calls to
+          reduce overhead for downstream callers. It's awkward to have think about the
+          exact attr-to-attr associations each time you want a type's associated
+          composition, especially when they don't change under the same Mapper (i.e.,
+          if you have the Mapper reference, the compositional associations should be
+          implicit).
+        - The barebones spec here appears to be two pairwise "composer" maps: one for
+          attribute comps, and one for collation comps. For now I think this makes sense
+          as additional init params, but there may later be reason to wrap this up a bit
+          more.
+        - Considering the full deprecation for the Composer type, or whether this could be
+          the place where it serves some purpose. Aesthetically, there's symmetry with the
+          `collect` and Collector method-type pairing, but that isn't a good enough reason
+          to justify a separate type here. The difference is that Collector instances
+          actually store type references, whereas the considered Composer type would
+          effectively just be a convenient collection of utility functions. Still possibly
+          useful, but not as clearly justifiable.
+        - If a separate Composer type were to be justified here, it would serve as a
+          "reusable connective tissue" for possibly many Mappers with the same kinds of
+          edge-wise relationships. Can think of it like this:
+
+          * Schemas collect up "nodes" (Components). These are explicit storage structures
+            in a DB, and can include some explicit attribute connections (foreign keys),
+            although those are connections made on the DB side.
+          * Mappers provide an exoskeleton for a Schema's nodes. It structures Components into
+            attributes and collation types, and additionally ties them to external CO3
+            types. The handy analogy here has been that attribute comps connect
+            _vertically_ (in a tree like fashion; point up for parents and down for
+            children), and collation comps point _horiztonally_ (or perhaps more aptly,
+            _outward_; at each node in the attribute tree, you have a "circle" of
+            collation comps that can point to it, and are not involved as formal tree
+            nodes. Can maybe think of these like "ornaments" or bulbs or orbitals).
+          * While the Mappers may provide the "bones," there's no way to communicate
+            _across_ them. While I might know that one attribute is the "parent" of
+            another, I don't know _why_ that relationship is there. A Composer, or the
+            composer details to be provided to this class, serve as the "nerves" to be
+            paired with the bone, actually establishing a line of communication. More
+            specifically, the nerves here are attribute-based mappings between pairs of
+            Components, i.e., (generalized) join conditions.
+
+        - Note that, by the above logic, we should then want/need a type to manage the
+          functions provided to `attach_many`. These functions help automatically
+          characterize the shape of the type skeleton in the same way the proposed
+          Composer wrapper would. In fact, the barebones presentation here is really just
+          the same two function signatures as are expected by that method. The above
+          analogy simply made me ask why the "bones" wouldn't be reusable if the "nerves"
+          were going to be. So we should perhaps coordinate a decision on this front; if
+          one goes, the other must as well. This may also help me keep it simpler for the
+          time being.
+        - One other aspect of a dedicated Composer type (and by the above point, a
+          hypothetical type to aid in `attach_many` specification) could have some sort of
+          "auto" feature about it. With a clear enough "discovery system," we could
+          encourage certain kinds of Schemas and components are named and structured. Such
+          an auto-composer could "scan" all components in a provided Schema and attempt to
+          find common attributes across tables that are unlinked (i.e., the reused
+          column names implicit across types in the attribute hierarchy; e.g., File.name
+          -> Note.name), as well as explicit connections which may suggest collation
+          attachment (e.g., `note_conversions.name` --FK-> Note.name). This, of course,
+          could always be overridden with manual specification, but being aware of some
+          automatic discovery structures could help constrain schema definitions to be
+          more in-line with the CO3 operational model. That all being said, this is a
+          large amount of complexity and should likely be avoided until necessary.
+    '''
+    def __init__(
+        self,
+        schema           : Schema[C],
+        attr_compose_map : Callable[[self.comp_spec, self.comp_spec], Any] | None = None
+        coll_compose_map : Callable[[self.comp_spec, self.comp_spec], Any] | None = None
+    ):
+        super().__init__(schema)
+
+        self.attr_compose_map = attr_compose_map
+        self.coll_compose_map = coll_compose_map
+
+    def compose(
+        self,
+        obj:           CO3,
+        action_groups: list[str] = None,
+        *compose_args,
+        **compose_kwargs,
+    ):
+        '''
+        Compose tables up the type hierarchy, and across through action groups to
+        collation components.
+
+        Note:
+            Comparing to ORM, this method would likely also still be needed, since it may
+            not be explicitly clear how some JOINs should be handled up the inheritance
+            chain (for components / sa.Relationships, it's a little easier).
+
+        Parameters:
+            outer: whether to use outer joins down the chain
+            conversion: whether to return conversion joins or base primitives
+            full: whether to return fully connected primitive and conversion table
+        '''
+        attr_comp_agg = None
+        for _cls in reversed(obj.__class__.__mro__[:-2]):
+            attr_comp = self.get_attribute_comp(_cls)
+
+            # require an attribute component for type consideration
+            if attr_comp is None:
+                continue
+
+            # compose horizontally with components from provided action groups
+            coll_comp_agg = attr_comp
+            for action_group in action_groups:
+                coll_comp = self.get_collation_comp(_cls, group=action_group)
+
+                if coll_comp is None:
+                    continue
+
+                compose_condition = self.coll_compose_map(coll_comp_agg, coll_comp)
+
+                coll_comp_agg = coll_comp_agg.compose(
+                    component=coll_comp,
+                    on=compose_condition,
+                    *compose_args,
+                    **compose_kwargs,
+                )
+
+            # note the reduced attr_comp ref passed to compose map, rather than
+            # coll_comp_agg produced above; this is provided as the compose comp, though
+            compose_condition = self.attr_compose_map(attr_comp_agg, attr_comp)
+            attr_comp_agg = attr_comp_agg.compose(
+                component=coll_comp_agg,
+                on=compose_condition,
+                *compose_args,
+                **compose_kwargs,
+            )
+
+        return attr_comp_agg

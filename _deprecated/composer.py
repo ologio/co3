@@ -87,3 +87,4 @@ class Composer[C: Component]:
         Retrieve the named table composition, if defined.
         '''
         return self.table_map.get(table_name)
+

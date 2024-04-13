@@ -103,3 +103,25 @@ tomato_cooking_table = sa.Table(
 vegetable_schema = SQLSchema.from_metadata(metadata)
 vegetable_mapper = Mapper(vegetable_schema)
 
+def attr_name_map(cls):
+    return f'{cls.__name__.lower()}'
+
+def coll_name_map(cls, action_group):
+    return f'{cls.__name__.lower()}_{action_group}_states'
+
+vegetable_mapper.attach_many(
+    type_list,
+    attr_name_map,
+    coll_name_map,
+)
+
+'''
+new mapping type for Mapper attachment:
+
+Callable[ [type[CO3], str|None], tuple[str, tuple[str], tuple[str]]]
+
+tail tuples to associate column names from central table to collation
+
+this should complete the auto-compose horizontally
+'''
+

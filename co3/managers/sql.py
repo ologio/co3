@@ -58,11 +58,11 @@ from co3.components import Relation, SQLTable
 logger = logging.getLogger(__name__)
 
 
-class RelationalManager[R: Relation, D: 'RelationalDatabase[R]'](Manager[R, D]):
+class RelationalManager[R: Relation](Manager[R]):
     pass
 
 
-class SQLManager(RelationalManager[SQLTable, 'SQLDatabase[SQLTable]']):
+class SQLManager(RelationalManager[SQLTable]):
     '''
     Core schema table manager. Exposes common operations and facilitates joint operations
     needed for highly connected schemas.

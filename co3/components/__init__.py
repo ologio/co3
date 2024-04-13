@@ -1,3 +1,10 @@
+'''
+Dev note:
+    Any reason to have ComposeableComponents and Relations as separate types? The thought
+    is that there may be some possible Component types we want to be able to Compose that
+    wouldn't logically be Relations. But the gap here might be quite small
+'''
+
 from typing import Self
 from abc import ABCMeta, abstractmethod
 
@@ -12,7 +19,7 @@ class ComposableComponent[T](Component[T], metaclass=ABCMeta):
     Components that can be composed with others of the same type.
     '''
     @abstractmethod
-    def compose(self, component: Self, on) -> Self:
+    def compose(self, component: Self, on, outer=False) -> Self:
         '''
         Abstract composition.
         '''
@@ -67,7 +74,6 @@ class SQLTable(Relation[SQLTableLike]):
         Provide column:default pairs for a provided SQLAlchemy table.
 
         Parameters:
-            table: SQLAlchemy table
             include_all: whether to include all columns, even those without explicit defaults
         '''
         default_values = {}
@@ -94,6 +100,9 @@ class SQLTable(Relation[SQLTableLike]):
         )
 
         return insert_dict
+
+    def compose(self, _with: Self, on, outer=False):
+        return self.obj.join(_with, on, isouter=outer)
 
 # key-value stores
 class Dictionary(Relation[dict]):

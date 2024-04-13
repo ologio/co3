@@ -118,7 +118,7 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
         limit        = 0,
         mappings     = False,
         include_cols = False,
-    ) -> list[dict|sa.Mapping]:
+    ): # -> list[dict|sa.Mapping]: (double check the Mapping types)
         '''
         Perform a SELECT query against the provided table-like object (see
         `check_table()`).

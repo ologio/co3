@@ -102,10 +102,12 @@ from co3.manager   import Manager
 from co3.mapper    import Mapper
 from co3.component import Component
 from co3.schema    import Schema
+from co3.engine    import Engine
 
 from co3 import accessors
 from co3 import databases
 from co3 import managers
 from co3 import components
 from co3 import schemas
+from co3 import engines
 from co3 import util
