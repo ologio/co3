@@ -131,7 +131,7 @@ class Mapper[C: Component]:
         type_list: list[type[CO3]],
         attr_name_map: Callable[[type[CO3]], str | C],
         coll_name_map: Callable[[type[CO3], str], str | C] | None = None,
-    ):
+    ) -> None:
         '''
         Auto-register a set of types to the Mapper's attached Schema. Associations are
         made from types to both attribute and collation component names, through
@@ -194,8 +194,10 @@ class Mapper[C: Component]:
 
         Returns: dict with keys and values relevant for associated SQLite tables
         '''
+        # default is to have no actions
         if action_keys is None:
-            action_keys = list(obj.action_map.keys())
+            action_keys = []
+            #action_keys = list(obj.action_registry.keys())
 
         receipts = []
         for _cls in reversed(obj.__class__.__mro__[:-2]):
@@ -218,7 +220,7 @@ class Mapper[C: Component]:
                 if collation_data is None:
                     continue
 
-                _, action_groups = obj.action_registry[action_key]
+                _, action_groups = obj.action_registry.get(action_key, (None, []))
                 for action_group in action_groups:
                     collation_component = self.get_collation_comp(_cls, group=action_group)
 
@@ -329,7 +331,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
     def compose(
         self,
-        obj:           CO3,
+        obj:           CO3 | type[CO3],
         action_groups: list[str] | None = None,
         *compose_args,
         **compose_kwargs,
@@ -344,12 +346,14 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
             chain (for components / sa.Relationships, it's a little easier).
 
         Parameters:
-            outer: whether to use outer joins down the chain
-            conversion: whether to return conversion joins or base primitives
-            full: whether to return fully connected primitive and conversion table
+            obj: either a CO3 instance or a type reference
         '''
+        class_ref = obj
+        if isinstance(obj, CO3):
+            class_ref = obj.__class__
+
         attr_comp_agg = None
-        for _cls in reversed(obj.__class__.__mro__[:-2]):
+        for _cls in reversed(class_ref.__mro__[:-2]):
             attr_comp = self.get_attribute_comp(_cls)
 
             # require an attribute component for type consideration

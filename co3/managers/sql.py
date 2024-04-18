@@ -35,13 +35,10 @@ Note: Options for insert/update model
        build, then single thread bulk INSERT. (**Note**: this is what the method does).
 '''
 
-from pathlib import Path
-from collections import defaultdict
+import time
 import logging
 import threading
-import math
-import time
-import pprint
+from pathlib import Path
 from concurrent.futures import wait, as_completed
 
 import sqlalchemy as sa
@@ -98,7 +95,11 @@ class SQLManager(RelationalManager[SQLTable]):
     def add_router(self, router):
         self.routers.append(router)
 
-    def recreate(self, schema: Schema[SQLTable], engine: SQLEngine): 
+    def recreate(
+        self,
+        schema: Schema[SQLTable],
+        engine: SQLEngine
+    ) -> None:
         '''
         Ideally this remains open, as we can't necessarily rely on a SQLAlchemy metadata
         object for all kinds of SQLDatabases (would depend on the backend, for instance). 
@@ -118,15 +119,21 @@ class SQLManager(RelationalManager[SQLTable]):
         connection,
         component,
         inserts: list[dict],
+        commit=True
     ):
         '''
         Parameters:
         '''
         with self._insert_lock:
-            connection.execute(
+            res = connection.execute(
                 sa.insert(component.obj),
                 inserts
             )
+
+            if commit:
+                connection.commit()
+
+        return res
 
     def insert_many(self, connection, inserts: dict):
         '''
@@ -139,9 +146,10 @@ class SQLManager(RelationalManager[SQLTable]):
         if total_inserts < 1: return
 
         logger.info(f'Total of {total_inserts} sync inserts to perform')
+        start = time.time()
 
         # TODO: add some exception handling? may be fine w default propagation
-        start = time.time()
+        res_list = []
         with self._insert_lock:
             for component in inserts:
                 comp_inserts = inserts[component]
@@ -151,9 +159,13 @@ class SQLManager(RelationalManager[SQLTable]):
                     f'Inserting {len(comp_inserts)} out-of-date entries into component "{component}"'
                 )
 
-                self.insert(connection, component, comp_inserts)
+                res = self.insert(connection, component, comp_inserts, commit=False)
+                res_list.append(res)
+
             connection.commit()
             logger.info(f'Insert transaction completed successfully in {time.time()-start:.2f}s')
+
+        return res_list
 
     def _file_sync_bools(self):
         synced_bools = []

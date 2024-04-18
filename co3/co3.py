@@ -12,21 +12,8 @@ import logging
 from collections import defaultdict
 from functools import wraps, partial
 
-#from localsys.db.schema import tables
 
 logger = logging.getLogger(__name__)
-
-
-#def register_format(_format):
-#    def decorator(func):
-#        self.collate.format_map[_format] = func
-#
-#        @wraps(func)
-#        def register(*args, **kwargs):
-#            return func(*args, **kwargs)
-#
-#        return register
-#    return decorator
 
 def collate(action_key, action_groups=None):
     def decorator(func):
