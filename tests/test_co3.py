@@ -7,14 +7,14 @@ def test_mapper_getters():
     veg_comp = veg.vegetable_schema.get_component('vegetable')
     tom_comp = veg.vegetable_schema.get_component('tomato')
 
-    assert veg.vegetable_mapper.get_attribute_comp(veg.Vegetable) is veg_comp
-    assert veg.vegetable_mapper.get_attribute_comp(veg.Tomato) is tom_comp
+    assert veg.vegetable_mapper.get_attr_comp(veg.Vegetable) is veg_comp
+    assert veg.vegetable_mapper.get_attr_comp(veg.Tomato) is tom_comp
 
     tom_aging = veg.vegetable_schema.get_component('tomato_aging_states')
     tom_cooking = veg.vegetable_schema.get_component('tomato_cooking_states')
 
-    assert veg.vegetable_mapper.get_collation_comp(veg.Tomato, 'aging') is tom_aging
-    assert veg.vegetable_mapper.get_collation_comp(veg.Tomato, 'cooking') is tom_cooking
+    assert veg.vegetable_mapper.get_coll_comp(veg.Tomato, 'aging') is tom_aging
+    assert veg.vegetable_mapper.get_coll_comp(veg.Tomato, 'cooking') is tom_cooking
 
 def test_mapper_attach():
     assert veg.vegetable_mapper.attach(

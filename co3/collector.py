@@ -37,13 +37,13 @@ class Collector[C: Component]:
     def __init__(self, schema: Schema[C]):
         self.schema = schema
 
-        self._inserts = defaultdict(lambda: defaultdict(list))
+        self._inserts = {}
 
     @property
     def inserts(self):
         return self._inserts_from_receipts()
 
-    def _inserts_from_receipts(self, receipts: list=None, pop=False):
+    def _inserts_from_receipts(self, receipts: list[str]|None=None, pop=False):
         '''
         Group up added inserts by Component, often to be used directly for bulk insertion.
         Optionally provide a list of `receipts` to group up only the corresponding subset of
@@ -104,7 +104,7 @@ class Collector[C: Component]:
 
         return receipt
 
-    def collect_inserts(self, receipts=None):
+    def collect_inserts(self, receipts:list[str]|None=None):
         '''
         Collect insert-ready dictionaries for the core primitive schema. This method is
         effectively a light wrapper around the File and Note-based collection logic

@@ -56,7 +56,7 @@ class RelationalAccessor[R: Relation](Accessor[R]):
         connection,
         text: str
     ):
-        connection.exec
+        #connection.exec
         raise NotImplementedError
 
     def select(
@@ -104,11 +104,17 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
         mappings=False,
         include_cols=False,
     ):
-        res_method = utils.db.sa_exec_dicts
-        if mappings:
-            res_method = utils.db.sa_exec_mappings
+        res = SQLEngine.execute(
+            connection,
+            sql,
+            bind_params=bind_params,
+            include_cols=include_cols
+        )
 
-        return res_method(self.database.engine, sa.text(sql), bind_params=bind_params, include_cols=include_cols)
+        if mappings:
+            return res.mappings().all()
+        else:
+            return self.result_dicts(res)
 
     def select(
         self,

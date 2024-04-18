@@ -157,17 +157,25 @@ class Mapper[C: Component]:
 
             self.attach(_type, attr_comp, coll_groups=coll_groups)
 
-    def get_attribute_comp(
+    def get_attr_comp(
         self,
-        type_ref: type[CO3]
+        co3_ref: CO3 | type[CO3]
     ) -> C | None:
+        type_ref = co3_ref
+        if isinstance(co3_ref, CO3):
+            type_ref = co3_ref.__class__
+
         return self.attribute_comps.get(type_ref, None)
 
-    def get_collation_comp(
+    def get_coll_comp(
         self,
-        type_ref: type[CO3],
+        co3_ref: CO3 | type[CO3],
         group=str | None,
     ) -> C | None:
+        type_ref = co3_ref
+        if isinstance(co3_ref, CO3):
+            type_ref = co3_ref.__class__
+
         return self.collation_groups.get(type_ref, {}).get(group, None)
 
     def collect(
@@ -201,7 +209,7 @@ class Mapper[C: Component]:
 
         receipts = []
         for _cls in reversed(obj.__class__.__mro__[:-2]):
-            attribute_component = self.get_attribute_comp(_cls)
+            attribute_component = self.get_attr_comp(_cls)
 
             # require an attribute component for type consideration
             if attribute_component is None:
@@ -222,7 +230,7 @@ class Mapper[C: Component]:
 
                 _, action_groups = obj.action_registry.get(action_key, (None, []))
                 for action_group in action_groups:
-                    collation_component = self.get_collation_comp(_cls, group=action_group)
+                    collation_component = self.get_coll_comp(_cls, group=action_group)
 
                     if collation_component is None:
                         continue
@@ -331,7 +339,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
     def compose(
         self,
-        obj:           CO3 | type[CO3],
+        co3_ref:       CO3 | type[CO3],
         action_groups: list[str] | None = None,
         *compose_args,
         **compose_kwargs,
@@ -348,13 +356,13 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
         Parameters:
             obj: either a CO3 instance or a type reference
         '''
-        class_ref = obj
-        if isinstance(obj, CO3):
-            class_ref = obj.__class__
+        type_ref = co3_ref
+        if isinstance(co3_ref, CO3):
+            type_ref = co3_ref.__class__
 
         attr_comp_agg = None
-        for _cls in reversed(class_ref.__mro__[:-2]):
-            attr_comp = self.get_attribute_comp(_cls)
+        for _cls in reversed(type_ref.__mro__[:-2]):
+            attr_comp = self.get_attr_comp(_cls)
 
             # require an attribute component for type consideration
             if attr_comp is None:
@@ -364,7 +372,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
             coll_comp_agg = attr_comp
             if action_groups is not None:
                 for action_group in action_groups:
-                    coll_comp = self.get_collation_comp(_cls, group=action_group)
+                    coll_comp = self.get_coll_comp(_cls, group=action_group)
 
                     if coll_comp is None:
                         continue
