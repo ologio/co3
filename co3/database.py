@@ -55,10 +55,10 @@ Dev note: on explicit connection contexts
 import logging
 
 from co3.accessor import Accessor
-from co3.composer import Composer
 from co3.manager  import Manager
 from co3.indexer  import Indexer
 from co3.engine   import Engine
+from co3.schema   import Schema
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +118,12 @@ class Database[C: Component]:
         self._reset_cache = False
 
     def select(self, component: C, *args, **kwargs):
+        '''
+        Dev note: args and kwargs have to be general/unspecified here due to the possible
+        passthrough method adopting arbitrary parameters in subtypes. I could simply
+        overload this method in the relevant inheriting DBs (i.e., by matching the
+        expected Accessor's .select signature).
+        '''
         with self.engine.connect() as connection:
             return self.accessor.select(
                 connection,
@@ -128,12 +134,15 @@ class Database[C: Component]:
 
     def insert(self, component: C, *args, **kwargs):
         with self.engine.connect() as connection:
-            return self.accessor.insert(
+            return self.manager.insert(
                 connection,
                 component,
                 *args,
                 **kwargs
             )
+
+    def recreate(self, schema: Schema[C]):
+        self.manager.recreate(schema, self.engine)
 
     @property
     def index(self):

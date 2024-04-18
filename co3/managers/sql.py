@@ -49,6 +49,7 @@ from tqdm.auto import tqdm
 
 from co3 import util
 from co3.schema import Schema
+from co3.engines import SQLEngine
 from co3.manager import Manager
 from co3.components import Relation, SQLTable
 
@@ -76,12 +77,17 @@ class SQLManager(RelationalManager[SQLTable]):
     from an attached collector.
     '''
     def __init__(self, *args, **kwargs):
+        '''
+        The insert lock is a _reentrant lock_, meaning the same thread can acquire the
+        lock again with out deadlocking (simplifying across methods of this class that
+        need it).
+        '''
         super().__init__(*args, **kwargs)
 
         self.routers  = []
 
         self._router    = None
-        self._insert_lock = threading.Lock()
+        self._insert_lock = threading.RLock()
 
     @property
     def router(self):
@@ -92,18 +98,42 @@ class SQLManager(RelationalManager[SQLTable]):
     def add_router(self, router):
         self.routers.append(router)
 
-    def recreate(self, schema: Schema[SQLTable]): 
-        schema.metadata.drop_all(self.engine)
-        schema.metadata.create_all(self.engine, checkfirst=True)
+    def recreate(self, schema: Schema[SQLTable], engine: SQLEngine): 
+        '''
+        Ideally this remains open, as we can't necessarily rely on a SQLAlchemy metadata
+        object for all kinds of SQLDatabases (would depend on the backend, for instance). 
+
+        Haven't quite nailed down how backend instances should be determined; something
+        like SQLAlchemySQLManager doesn't seem great. Nevertheless, this method likely
+        cannot be generalized at the "SQL" (general) level.
+        '''
+        metadata = next(iter(schema._component_set)).obj.metadata
+        metadata.drop_all(engine.manager)
+        metadata.create_all(engine.manager, checkfirst=True)
 
     def update(self): pass
 
-    def insert(self, inserts: dict):
+    def insert(
+        self,
+        connection,
+        component,
+        inserts: list[dict],
+    ):
+        '''
+        Parameters:
+        '''
+        with self._insert_lock:
+            connection.execute(
+                sa.insert(component.obj),
+                inserts
+            )
+
+    def insert_many(self, connection, inserts: dict):
         '''
         Perform provided table inserts.
 
         Parameters:
-            inserts: table-indexed dictionary of insert lists
+            inserts: component-indexed dictionary of insert lists
         '''
         total_inserts = sum([len(ilist) for ilist in inserts.values()])
         if total_inserts < 1: return
@@ -112,24 +142,18 @@ class SQLManager(RelationalManager[SQLTable]):
 
         # TODO: add some exception handling? may be fine w default propagation
         start = time.time()
-        with self.engine.connect() as connection:
-            with self._insert_lock:
-                for table_str in inserts:
-                    table_inserts = inserts[table_str]
-                    if len(table_inserts) == 0: continue
+        with self._insert_lock:
+            for component in inserts:
+                comp_inserts = inserts[component]
+                if len(comp_inserts) == 0: continue
 
-                    table = tables.table_map[table_str]
+                logger.info(
+                    f'Inserting {len(comp_inserts)} out-of-date entries into component "{component}"'
+                )
 
-                    logger.info(
-                        f'Inserting {len(table_inserts)} out-of-date entries into table "{table_str}"'
-                    )
-
-                    connection.execute(
-                        sa.insert(table),
-                        table_inserts
-                    )
-                connection.commit()
-                logger.info(f'Insert transaction completed successfully in {time.time()-start:.2f}s')
+                self.insert(connection, component, comp_inserts)
+            connection.commit()
+            logger.info(f'Insert transaction completed successfully in {time.time()-start:.2f}s')
 
     def _file_sync_bools(self):
         synced_bools = []

@@ -29,7 +29,7 @@ Development log:
       hierarchy). As such, to fully collect from a type, the Mapper needs to leave
       registration open to various types, not just those part of the same hierarchy.
 '''
-from typing import Callable
+from typing import Callable, Any
 from collections import defaultdict
 
 from co3.co3        import CO3
@@ -55,12 +55,14 @@ class Mapper[C: Component]:
     "dropped off" at an appropriate Database's Manager to actually perform the requested
     inserts (hence why we tie Mappers to Schemas one-to-one). 
 
-    Dev note: the Composer needs reconsideration, or at least its positioning directly in
-    this class. It may be more appropriate to have at the Schema level, or even just
-    dissolved altogether if arbitrary named Components can be attached to schemas.
-    '''
-    type comp_spec = str | C
+    Dev note:
+        the Composer needs reconsideration, or at least its positioning directly in this
+        class. It may be more appropriate to have at the Schema level, or even just
+        dissolved altogether if arbitrary named Components can be attached to schemas.
 
+        - Consider pushing this into a Mapper factory; on init, could check if provided
+          Schema wraps up composable Components or not
+    '''
     _collector_cls: type[Collector[C]] = Collector[C]
 
     def __init__(self, schema: Schema[C]):
@@ -76,7 +78,7 @@ class Mapper[C: Component]:
         self.attribute_comps:  dict[type[CO3], C] = {}
         self.collation_groups: dict[type[CO3], dict[str|None, C]] = defaultdict(dict)
 
-    def _check_component(self, comp: self.comp_spec):
+    def _check_component(self, comp: str | C):
         if type(comp) is str:
             comp_key = comp
             comp = self.schema.get_component(comp_key)
@@ -95,9 +97,9 @@ class Mapper[C: Component]:
     def attach(
         self,
         type_ref    : type[CO3],
-        attr_comp   : self.comp_spec,
-        coll_comp   : self.comp_spec | None                   = None,
-        coll_groups : dict[str | None, self.comp_spec] | None = None,
+        attr_comp   : str | C,
+        coll_comp   : str | C | None                   = None,
+        coll_groups : dict[str | None, str | C] | None = None,
     ) -> None:
         '''
         Parameters:
@@ -127,8 +129,8 @@ class Mapper[C: Component]:
     def attach_many(
         self,
         type_list: list[type[CO3]],
-        attr_name_map: Callable[[type[CO3]], self.comp_spec],
-        coll_name_map: Callable[[type[CO3], str], self.comp_spec] | None = None,
+        attr_name_map: Callable[[type[CO3]], str | C],
+        coll_name_map: Callable[[type[CO3], str], str | C] | None = None,
     ):
         '''
         Auto-register a set of types to the Mapper's attached Schema. Associations are
@@ -218,7 +220,7 @@ class Mapper[C: Component]:
 
                 _, action_groups = obj.action_registry[action_key]
                 for action_group in action_groups:
-                    collation_component, _ = self.get_collation_comp(_cls, group=action_group)
+                    collation_component = self.get_collation_comp(_cls, group=action_group)
 
                     if collation_component is None:
                         continue
@@ -317,8 +319,8 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
     def __init__(
         self,
         schema           : Schema[C],
-        attr_compose_map : Callable[[self.comp_spec, self.comp_spec], Any] | None = None
-        coll_compose_map : Callable[[self.comp_spec, self.comp_spec], Any] | None = None
+        attr_compose_map : Callable[[str | C, str | C], Any] | None = None,
+        coll_compose_map : Callable[[str | C, str | C], Any] | None = None,
     ):
         super().__init__(schema)
 
@@ -328,7 +330,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
     def compose(
         self,
         obj:           CO3,
-        action_groups: list[str] = None,
+        action_groups: list[str] | None = None,
         *compose_args,
         **compose_kwargs,
     ):
@@ -356,29 +358,36 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
             # compose horizontally with components from provided action groups
             coll_comp_agg = attr_comp
-            for action_group in action_groups:
-                coll_comp = self.get_collation_comp(_cls, group=action_group)
+            if action_groups is not None:
+                for action_group in action_groups:
+                    coll_comp = self.get_collation_comp(_cls, group=action_group)
 
-                if coll_comp is None:
-                    continue
+                    if coll_comp is None:
+                        continue
 
-                compose_condition = self.coll_compose_map(coll_comp_agg, coll_comp)
+                    # note how the join condition is specified using the non-composite
+                    # `attr_comp` and new `coll_comp`; the composite doesn't typically
+                    # have the same attribute access and needs a ref to a specific comp
+                    compose_condition = self.coll_compose_map(attr_comp, coll_comp)
 
-                coll_comp_agg = coll_comp_agg.compose(
-                    component=coll_comp,
-                    on=compose_condition,
+                    coll_comp_agg = coll_comp_agg.compose(
+                        coll_comp,
+                        compose_condition,
+                        *compose_args,
+                        **compose_kwargs,
+                    )
+
+            if attr_comp_agg is None:
+                attr_comp_agg = coll_comp_agg
+            else:
+                # note the reduced attr_comp ref passed to compose map, rather than
+                # coll_comp_agg produced above; this is provided as the compose comp, though
+                compose_condition = self.attr_compose_map(attr_comp_agg, attr_comp)
+                attr_comp_agg = attr_comp_agg.compose(
+                    coll_comp_agg,
+                    compose_condition,
                     *compose_args,
                     **compose_kwargs,
                 )
-
-            # note the reduced attr_comp ref passed to compose map, rather than
-            # coll_comp_agg produced above; this is provided as the compose comp, though
-            compose_condition = self.attr_compose_map(attr_comp_agg, attr_comp)
-            attr_comp_agg = attr_comp_agg.compose(
-                component=coll_comp_agg,
-                on=compose_condition,
-                *compose_args,
-                **compose_kwargs,
-            )
 
         return attr_comp_agg

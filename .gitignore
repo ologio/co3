@@ -2,6 +2,7 @@
 __pycache__/
 .pytest_cache/
 localsys.egg-info/
+.ipynb_checkpoints/
 
 # vendor and build files
 dist/

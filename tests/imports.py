@@ -1,7 +1,6 @@
 from co3 import Accessor
 from co3 import CO3
 from co3 import Collector
-from co3 import Composer
 from co3 import Database
 from co3 import Indexer
 from co3 import Manager

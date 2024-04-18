@@ -10,14 +10,13 @@ class SQLEngine(Engine):
         super().__init__(url, **kwargs)
 
     def _create_manager(self):
-        return sa.create_engine(*self.manager_args, self.manager_kwargs)
+        return sa.create_engine(*self._manager_args, **self._manager_kwargs)
         
-    @contextmanager
     def connect(self, timeout=None):
         return self.manager.connect()
     
     @staticmethod
-    def _execute(
+    def execute(
         connection,
         statement,
         bind_params=None,
@@ -42,7 +41,7 @@ class SQLEngine(Engine):
         return res
 
     @staticmethod
-    def _exec_explicit(connection, statement, bind_params=None):
+    def exec_explicit(connection, statement, bind_params=None):
         trans = connection.begin()  # start a new transaction explicitly
         try:
             result = connection.execute(statement, bind_params)

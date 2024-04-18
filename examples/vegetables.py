@@ -6,7 +6,7 @@ import random
 import sqlalchemy as sa
 
 from co3.schemas import SQLSchema
-from co3 import CO3, collate, Mapper
+from co3 import CO3, collate, Mapper, ComposableMapper
 from co3 import util
 
 
@@ -101,7 +101,15 @@ tomato_cooking_table = sa.Table(
     sa.Column('pieces', sa.Integer),
 )
 vegetable_schema = SQLSchema.from_metadata(metadata)
-vegetable_mapper = Mapper(vegetable_schema)
+
+def general_compose_map(c1, c2):
+    return c1.obj.c.name == c2.obj.c.name
+    
+vegetable_mapper = ComposableMapper(
+    vegetable_schema,
+    attr_compose_map=general_compose_map,
+    coll_compose_map=general_compose_map,
+)
 
 def attr_name_map(cls):
     return f'{cls.__name__.lower()}'

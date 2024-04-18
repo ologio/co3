@@ -15,7 +15,8 @@ class SQLSchema(RelationalSchema[SQLTable]):
         instance = cls()
 
         for table in metadata.tables.values():
-            SQLTable.from_table(table, instance)
+            comp = SQLTable.from_table(table)
+            instance.add_component(comp)
 
         return instance
         

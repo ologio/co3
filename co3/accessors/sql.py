@@ -83,7 +83,8 @@ class RelationalAccessor[R: Relation](Accessor[R]):
         include_cols : bool = False,
     ):
         res = self.select(
-            relation, attributes, where, mappings, include_cols, limit=1)
+            relation, attributes, where, mappings, include_cols, limit=1
+        )
 
         if include_cols and len(res[0]) > 0:
             return res[0][0], res[1]
@@ -97,6 +98,7 @@ class RelationalAccessor[R: Relation](Accessor[R]):
 class SQLAccessor(RelationalAccessor[SQLTable]):
     def raw_select(
         self,
+        connection,
         sql,
         bind_params=None,
         mappings=False,
@@ -110,7 +112,8 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
 
     def select(
         self,
-        table:       SQLTable,
+        connection,
+        component:   SQLTable,
         columns      = None,
         where        = None,
         distinct_on  = None,
@@ -141,20 +144,21 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
         if where is None:
             where = sa.true()
 
-        stmt = sa.select(table).where(where)
-        if cols is not None:
-            stmt = sa.select(*cols).select_from(table).where(where)
+        table = component.obj
+        statement = sa.select(table).where(where)
+        if columns is not None:
+            statement = sa.select(*columns).select_from(table).where(where)
 
         if distinct_on is not None:
-            stmt = stmt.group_by(distinct_on)
+            statement = statement.group_by(distinct_on)
 
         if order_by is not None:
-            stmt = stmt.order_by(order_by)
+            statement = statement.order_by(order_by)
 
         if limit > 0:
-            stmt = stmt.limit(limit)
+            statement = statement.limit(limit)
 
-        res = SQLEngine._execute(connection, statement, include_cols=include_cols)
+        res = SQLEngine.execute(connection, statement, include_cols=include_cols)
 
         if mappings:
             return res.mappings().all()

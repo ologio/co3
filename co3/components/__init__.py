@@ -63,8 +63,12 @@ class Relation[T](ComposableComponent[T]):
 
 class SQLTable(Relation[SQLTableLike]):
     @classmethod
-    def from_table(cls, table: sa.Table, schema: 'SQLSchema'):
-        return cls(table.name, table, schema)
+    def from_table(cls, table: sa.Table):
+        '''
+        Note that the sa.Table type is intentional here; not all matching types for
+        SQLTableLike have a defined `name` property
+        '''
+        return cls(table.name, table)
 
     def get_attributes(self) -> tuple:
         return tuple(self.obj.columns)
@@ -102,7 +106,10 @@ class SQLTable(Relation[SQLTableLike]):
         return insert_dict
 
     def compose(self, _with: Self, on, outer=False):
-        return self.obj.join(_with, on, isouter=outer)
+        return self.__class__(
+            f'{self.name}+{_with.name}',
+            self.obj.join(_with.obj, on, isouter=outer)
+        )
 
 # key-value stores
 class Dictionary(Relation[dict]):

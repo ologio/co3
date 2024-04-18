@@ -8,6 +8,7 @@ from pathlib import Path
 from abc import ABCMeta, abstractmethod
 
 from co3.schema import Schema
+from co3.engine import Engine
 
 
 class Manager[C: Component](metaclass=ABCMeta):
@@ -19,7 +20,7 @@ class Manager[C: Component](metaclass=ABCMeta):
     wrapped up in this class to then also be mirrored for the FTS counterparts.
     '''
     @abstractmethod
-    def recreate(self, schema: Schema[C]):
+    def recreate(self, schema: Schema[C], engine: Engine):
         raise NotImplementedError
 
     @abstractmethod
