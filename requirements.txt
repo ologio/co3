@@ -6,3 +6,5 @@ myst-parser
 
 sqlalchemy
 numpy
+
+pytest

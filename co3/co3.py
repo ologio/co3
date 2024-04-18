@@ -113,6 +113,7 @@ class CO3(metaclass=FormatRegistryMeta):
             logger.debug(f'Collation for {action_key} not supported')
             return None
         else:
-            return self.action_registry[action_key][0](self)
+            action_method = self.action_registry[action_key][0]
+            return action_method(self, *action_args, **action_kwargs)
 
 

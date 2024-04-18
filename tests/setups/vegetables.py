@@ -24,7 +24,7 @@ class Tomato(Vegetable):
     def attributes(self):
         return vars(self)
         
-    def collation_attributes(self, action_key, action_grounp):
+    def collation_attributes(self, action_key, action_group):
         return {
             'name': self.name,
             'state': action_key,
