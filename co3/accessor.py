@@ -1,5 +1,5 @@
 '''
-Accessor
+**Accessor**
 
 Provides access to an underlying schema through a supported set of operations. Class
 methods could be general, high-level SQL wrappers, or convenience functions for common

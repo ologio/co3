@@ -8,4 +8,6 @@ localsys.egg-info/
 # vendor and build files
 dist/
 build/
-docs/sphinx/_build/
+docs/_autoref/
+docs/_autosummary/
+docs/_build/

@@ -6,8 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'co4'
-copyright = '2023, Sam Griesemer'
+project = 'co3'
+copyright = '2024, Sam Griesemer'
 author = 'Sam Griesemer'
 
 # -- General configuration ---------------------------------------------------
@@ -15,9 +15,12 @@ author = 'Sam Griesemer'
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.viewcode",
     "myst_parser",
 ]
+autosummary_generate = True
+autosummary_imported_members = True
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
