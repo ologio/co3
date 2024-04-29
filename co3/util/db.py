@@ -1,24 +1,26 @@
 '''
 Example usage for this file's utilities:
 
-# get SA engine, creating folder hierarchy to provided DB path
-engine = db.get_engine(<path>)
+.. code-block:: python
 
-# execute a single SA statement, returns a CursorResult
-select_results = db.sa_execute(engine, sa.select(<table>))
-
-# convert raw results to dictionaries, keys corresponding to col names
-select_dicts = db.named_results(<table>, select_results)
-
-# use table defaults and cols to create compliant insert
-insert_dicts = [ db.prepare_insert(<table>, sd) for sd in select_dicts ]
-
-# perform a bulk insert
-with engine.connect() as connection:
-    connection.execute(
-        sa.insert(<table>),
-        insert_dicts
-    )
+    # get SA engine, creating folder hierarchy to provided DB path
+    engine = db.get_engine(<path>)
+    
+    # execute a single SA statement, returns a CursorResult
+    select_results = db.sa_execute(engine, sa.select(<table>))
+    
+    # convert raw results to dictionaries, keys corresponding to col names
+    select_dicts = db.named_results(<table>, select_results)
+    
+    # use table defaults and cols to create compliant insert
+    insert_dicts = [ db.prepare_insert(<table>, sd) for sd in select_dicts ]
+    
+    # perform a bulk insert
+    with engine.connect() as connection:
+        connection.execute(
+            sa.insert(<table>),
+            insert_dicts
+        )
 '''
 
 import time
@@ -54,7 +56,7 @@ def deferred_fkey(target, **kwargs):
 
 def deferred_cd_fkey(target, **kwargs):
     '''
-    Prefer this when using FKEYs; need to really justify _not_ having a CASCADE deletion
+    Prefer this when using FKEYs; need to really justify *not* having a CASCADE deletion
     enabled
     '''
     return deferred_fkey(target, ondelete='CASCADE', **kwargs)
@@ -179,7 +181,7 @@ def create_vss0(
         embedding_size=384,
     ):
     '''
-    Create a VSS table
+    Create a VSS table.
 
     Parameters:
         table: either SQLAlchemy table instance, or table name string

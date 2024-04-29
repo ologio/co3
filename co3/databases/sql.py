@@ -10,8 +10,8 @@ from co3.components import Relation, SQLTable
 class RelationalDatabase[C: RelationR](Database):
     '''
     accessor/manager assignments satisfy supertype's type settings;
-    `TabluarAccessor[Self, C]` is of type `type[RelationalAccessor[Self, C]]`
-    (and yes, `type[]` specifies that the variable is itself being set to a type or a
+    ``TabluarAccessor[Self, C]`` is of type ``type[RelationalAccessor[Self, C]]``
+    (and yes, ``type[]`` specifies that the variable is itself being set to a type or a
     class, rather than a satisfying _instance_)
     '''
     _accessor_cls: type[RelationalAccessor[C]] = RelationalAccessor[C]

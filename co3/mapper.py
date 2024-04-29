@@ -7,23 +7,26 @@ auto-collection and composition.
 
 Example:
 
-mapper = Mapper[sa.Table]()
+.. code-block:: python
 
-mapper.attach(
-    Type,
-    attr_comp=TypeTable,
-    coll_comp=CollateTable,
-    coll_groups={
-        'name': NameConversions
-    }
-)
+    mapper = Mapper[sa.Table]()
+    
+    mapper.attach(
+        Type,
+        attr_comp=TypeTable,
+        coll_comp=CollateTable,
+        coll_groups={
+            'name': NameConversions
+        }
+    )
 
-Development log:
+.. admonition:: Development log
+
     - Overruled design decision: Mappers were previously designed to map from a specific
       CO3 hierarchy to a specific Schema. The intention was to allow only related types to
       be attached to a single schema, at least under a particular Mapper. The type
       restriction has since been removed, however, as it isn't particularly well-founded.
-      During `collect()`, a particular instance collects data from both its attributes and
+      During ``collect()``, a particular instance collects data from both its attributes and
       its collation actions. It then repeats the same upward for parent types (part of the
       same type hierarchy), and down to components (often not part of the same type
       hierarchy). As such, to fully collect from a type, the Mapper needs to leave
@@ -51,11 +54,11 @@ class Mapper[C: Component]:
        attached CO3 types
 
     Additionally, the Mapper manages its own Collector and Composer instances. The
-    Collector receives the inserts from `.collect()` calls, and will subsequently be
+    Collector receives the inserts from ``.collect()`` calls, and will subsequently be
     "dropped off" at an appropriate Database's Manager to actually perform the requested
     inserts (hence why we tie Mappers to Schemas one-to-one). 
 
-    Dev note:
+    .. admonition:: Dev note
         the Composer needs reconsideration, or at least its positioning directly in this
         class. It may be more appropriate to have at the Schema level, or even just
         dissolved altogether if arbitrary named Components can be attached to schemas.
@@ -135,7 +138,7 @@ class Mapper[C: Component]:
         '''
         Auto-register a set of types to the Mapper's attached Schema. Associations are
         made from types to both attribute and collation component names, through
-        `attr_name_map` and `coll_name_map`, respectively. Collation targets are inferred
+        ``attr_name_map`` and ``coll_name_map``, respectively. Collation targets are inferred
         through the registered groups in each type.
 
         Parameters:
@@ -143,7 +146,7 @@ class Mapper[C: Component]:
             attr_name_map: function mapping from types/classes to attribute component names
                            in the attached Mapper Schema
             coll_name_map: function mapping from types/classes & action groups to
-                           collation component names in the attached Mapper Schema. `None`
+                           collation component names in the attached Mapper Schema. ``None``
                            is passed as the action group to retrieve the default
                            collection target.
         '''
@@ -192,7 +195,7 @@ class Mapper[C: Component]:
             how inserts should be handled for inheritance. ORM would make component
             inserts a little easier perhaps, since they can be attached as attributes to
             constructed row objects and a sa.Relationship will handle the rest. Granted,
-            we don't do a whole lot more here: we just call `collect` over those
+            we don't do a whole lot more here: we just call ``collect`` over those
             components, adding them to the collector session all the same.
 
         Parameters:
@@ -256,14 +259,15 @@ class Mapper[C: Component]:
 
 class ComposableMapper[C: ComposableComponent](Mapper[C]):
     '''
-    Dev note: class design
+    .. admonition:: class design
+
         Heavily debating between multiple possible design approaches here. The main
         purpose of this subtype is make clear the need for additional compositional
         mapping details, namely functions that can produce pairwise join conditions for
         both the attribute tree (vertical traversal) and the collation components
         (horizontal traversal). Here's a few remarks:
 
-        - I want the necessary maps to provided/stored _outside_ of `compose` calls to
+        - I want the necessary maps to provided/stored *outside* of ``compose`` calls to
           reduce overhead for downstream callers. It's awkward to have think about the
           exact attr-to-attr associations each time you want a type's associated
           composition, especially when they don't change under the same Mapper (i.e.,
@@ -275,7 +279,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
           more.
         - Considering the full deprecation for the Composer type, or whether this could be
           the place where it serves some purpose. Aesthetically, there's symmetry with the
-          `collect` and Collector method-type pairing, but that isn't a good enough reason
+          ``collect`` and Collector method-type pairing, but that isn't a good enough reason
           to justify a separate type here. The difference is that Collector instances
           actually store type references, whereas the considered Composer type would
           effectively just be a convenient collection of utility functions. Still possibly
@@ -290,21 +294,21 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
           * Mappers provide an exoskeleton for a Schema's nodes. It structures Components into
             attributes and collation types, and additionally ties them to external CO3
             types. The handy analogy here has been that attribute comps connect
-            _vertically_ (in a tree like fashion; point up for parents and down for
-            children), and collation comps point _horiztonally_ (or perhaps more aptly,
-            _outward_; at each node in the attribute tree, you have a "circle" of
+            *vertically* (in a tree like fashion; point up for parents and down for
+            children), and collation comps point *horizontally* (or perhaps more aptly,
+            *outward*; at each node in the attribute tree, you have a "circle" of
             collation comps that can point to it, and are not involved as formal tree
             nodes. Can maybe think of these like "ornaments" or bulbs or orbitals).
           * While the Mappers may provide the "bones," there's no way to communicate
-            _across_ them. While I might know that one attribute is the "parent" of
-            another, I don't know _why_ that relationship is there. A Composer, or the
+            *across* them. While I might know that one attribute is the "parent" of
+            another, I don't know *why* that relationship is there. A Composer, or the
             composer details to be provided to this class, serve as the "nerves" to be
             paired with the bone, actually establishing a line of communication. More
             specifically, the nerves here are attribute-based mappings between pairs of
             Components, i.e., (generalized) join conditions.
 
         - Note that, by the above logic, we should then want/need a type to manage the
-          functions provided to `attach_many`. These functions help automatically
+          functions provided to ``attach_many``. These functions help automatically
           characterize the shape of the type skeleton in the same way the proposed
           Composer wrapper would. In fact, the barebones presentation here is really just
           the same two function signatures as are expected by that method. The above
@@ -313,14 +317,14 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
           one goes, the other must as well. This may also help me keep it simpler for the
           time being.
         - One other aspect of a dedicated Composer type (and by the above point, a
-          hypothetical type to aid in `attach_many` specification) could have some sort of
+          hypothetical type to aid in ``attach_many`` specification) could have some sort of
           "auto" feature about it. With a clear enough "discovery system," we could
           encourage certain kinds of Schemas and components are named and structured. Such
           an auto-composer could "scan" all components in a provided Schema and attempt to
           find common attributes across tables that are unlinked (i.e., the reused
           column names implicit across types in the attribute hierarchy; e.g., File.name
           -> Note.name), as well as explicit connections which may suggest collation
-          attachment (e.g., `note_conversions.name` --FK-> Note.name). This, of course,
+          attachment (e.g., ``note_conversions.name --FK-> Note.name``). This, of course,
           could always be overridden with manual specification, but being aware of some
           automatic discovery structures could help constrain schema definitions to be
           more in-line with the CO3 operational model. That all being said, this is a

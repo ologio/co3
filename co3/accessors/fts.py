@@ -25,12 +25,12 @@ class FTSAccessor(Accessor):
         '''
         Execute a search query against an indexed FTS table for specific primitives. This
         method is mostly a generic FTS handler, capable of handling queries to any available
-        FTS table with a matching naming scheme (`fts_<type>_<tokenizer>`). The current
+        FTS table with a matching naming scheme (``fts_<type>_<tokenizer>``). The current
         intention is support all tokenizers, for file, note, block, and link primitives.
 
-        Search results include all FTS table columns, as well as SQLite-supported `snippet`s
-        and `highlight`s for matches. Matches are filtered and ordered by SQLite's
-        `MATCH`-based score for the text & column queries. Results are (a list of) fully
+        Search results include all FTS table columns, as well as SQLite-supported ``snippet``s
+        and ``highlight``s for matches. Matches are filtered and ordered by SQLite's
+        ``MATCH``-based score for the text & column queries. Results are (a list of) fully
         expanded dictionaries housing column-value pairs.
 
         Note:
@@ -55,7 +55,7 @@ class FTSAccessor(Accessor):
             search_cols : space separated string of columns to use for primary queries
             q           : search query
             colq        : column constraint string; must conform to SQLite standards (e.g.,
-                          `<col>:<text>`
+                          ``<col>:<text>``
             snip_col    : table column to use for snippets (default: 1; source content column)
             hl_col      : table column to use for highlights (default: 2; format column, applied
                           to HTML targets)

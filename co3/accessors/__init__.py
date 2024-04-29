@@ -15,8 +15,8 @@ subclasses.
 
 For instance, you could wrap an FTSComposer in either a TableAccessor or FTSAccessor. The
 former will treat the tables in the composer like regular tables, exposing methods like
-`.select` and `.select_one`, whereas the latter defines FTS-specific actions like
-`.search`.
+``.select`` and ``.select_one``, whereas the latter defines FTS-specific actions like
+``.search``.
 '''
 
 from co3.accessors.sql import SQLAccessor

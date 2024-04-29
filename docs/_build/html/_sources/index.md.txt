@@ -30,8 +30,6 @@ _autoref/co3.rst
 :maxdepth: 3
 :caption: Contents
 
-reference/test
-
 reference/documentation/index
 reference/site/index
 ```

@@ -17,7 +17,8 @@ class Engine:
     other type, although it may appear that way when such a type is in fact readily
     available).
 
-    Dev note: why is this object necessary?
+    .. admonition:: why is this object necessary?
+
         More specifically, why not just have all the functionality here packed into the
         Database by default? The answer is that, realistically, it could be. The type
         separation between the Engine and Database is perhaps the least substantiated in
@@ -30,7 +31,8 @@ class Engine:
         unique Database type), a separate object here would indeed be a waste, as is the
         case for any compositional typing scheme.
 
-    Dev note:
+    .. admonition:: dev note
+
         This class is now non-generic. It was originally conceived as a generic, depending
         on a "resource spec type" to be help define expected types on initialization.
         This simply proved too messy, required generic type propagation to the Database
@@ -55,7 +57,7 @@ class Engine:
     def _create_manager(self):
         '''
         Create the session manager needed for connection contexts. This method is called
-        once by the `.manager` property function when it is first accessed. This method is
+        once by the ``.manager`` property function when it is first accessed. This method is
         separated to isolate the creation logic in inheriting types.
 
         Note that this method takes no explicit arguments. This is primarily because the

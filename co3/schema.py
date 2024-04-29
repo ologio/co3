@@ -4,7 +4,7 @@ Schema
 Collection of related storage components, often representing the data structure of an
 entire database. Some databases support multiple schemas, however. In general, a Schema
 can wrap up an associated subset of components within a single database, so long as
-`Manager.recreate()` supports creating components in separate calls (even if the
+``Manager.recreate()`` supports creating components in separate calls (even if the
 associated database doesn't explicitly support multiple schemas).
 
 Schema objects are used to:

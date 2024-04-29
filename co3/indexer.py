@@ -77,11 +77,11 @@ class Indexer:
         index_on    = None,
     ):
         '''
-        Like `group_by`, but makes a full query to the Accessors table `table_name` and
+        Like ``group_by``, but makes a full query to the Accessors table ``table_name`` and
         caches the results. The processing performed by the GROUP BY is also cached.
 
-        Update: `cached_select` and `cached_group_by` now unified by a single
-        `cached_query` method. This allows better defined GROUP BY caches, that are
+        Update: ``cached_select`` and ``cached_group_by`` now unified by a single
+        ``cached_query`` method. This allows better defined GROUP BY caches, that are
         reactive to the full set of parameters returning the result set (and not just the
         table, requiring a full query).
 
@@ -93,12 +93,12 @@ class Indexer:
             which will look the same regardless of instance.
 
             Context: this became a clear issue when passing in more
-            `order_by=<col>.desc()`. The `desc()` causes the index to store the column in
+            ``order_by=<col>.desc()``. The ``desc()`` causes the index to store the column in
             an instance-specific way, rather than an easily re-usable, canonical column
             reference. Each time the CoreDatabase.files() was being called, for instance,
-            that @property would be re-evaluated, causing `desc()` to be re-initialized,
+            that @property would be re-evaluated, causing ``desc()`` to be re-initialized,
             and thus look different to the cache. Stringifying everything prevents this
-            (although this could well be an indication that only a single `cache_block`
+            (although this could well be an indication that only a single ``cache_block``
             should ever be returned be database properties).
 
         Note: on access locks
@@ -193,7 +193,7 @@ class Indexer:
     ):
         '''
         Post-query "group by"-like aggregation. Creates an index over a set of columns
-        (`group_by_cols`), and aggregates values from `agg_cols` under the groups.
+        (``group_by_cols``), and aggregates values from ``agg_cols`` under the groups.
 
         Rows can be dicts or mappings, and columns can be strings or SQLAlchemy columns.
         To ensure the right columns are being used for the operation, it's best to pass in
@@ -319,49 +319,49 @@ class Indexer:
 
 class CacheBlock:
     '''
-    CacheBlock class
-
     Wraps up a set of query parameters for a specific entity, and provides cached access
     to different types of "re-queries" via an associated Indexer.
 
-    The goal here is to help build/define entities as the possibly complex transformations
-    on the base schema that they are. For example, the Note primitive (entity)
-    incorporates details across `files`, `notes`, `note_conversions`, and
-    `note_conversion_matter` tables (defined in a single endpoint by a Composer), often
-    needs to be selected in particular ways (via an Accessor), and results stored for fast
-    access later on (handled by an Indexer). This pipeline can be daunting and requires
-    too many moving parts to be handled explicitly everywhere. CacheBlocks wrap up a set
-    of query "preferences," exposing a simpler interface for downstream access to
-    entities. It still allows for low-level control over re-grouping/indexing, raw hits to
-    the actual DB, etc, but keeps things tighter and well-behaved for the Indexer.
-    
-    You can think of these as the Indexer's "fingers"; they're deployable mini-Indexes
-    that "send back" results to the class cache, which is "broadcast" to all other
-    instances for use when necessary.
+    .. admonition:: Additional details
 
-    Note: Example usage
+        The goal here is to help build/define entities as the possibly complex
+        transformations on the base schema that they are. For example, the Note primitive
+        (entity) incorporates details across ``files``, ``notes``, ``note_conversions``,
+        and ``note_conversion_matter`` tables (defined in a single endpoint by a
+        Composer), often needs to be selected in particular ways (via an Accessor), and
+        results stored for fast access later on (handled by an Indexer). This pipeline can
+        be daunting and requires too many moving parts to be handled explicitly
+        everywhere. CacheBlocks wrap up a set of query "preferences," exposing a simpler
+        interface for downstream access to entities. It still allows for low-level control
+        over re-grouping/indexing, raw hits to the actual DB, etc, but keeps things
+        tighter and well-behaved for the Indexer.
         
-        ```py
-        cb = CacheBlock()
+        You can think of these as the Indexer's "fingers"; they're deployable mini-Indexes
+        that "send back" results to the class cache, which is "broadcast" to all other
+        instances for use when necessary.
 
-        # Set up cached queries with chained params or via call:
+    .. admonition:: Example usage
         
-        cb.where(t.notes.c.name=="name").group_by(t.note_conversions.c.format)
-        cb() # get results
+        .. code-block:: python
 
-        # - OR - # (use strings when known)
+            cb = CacheBlock()
 
-        cb.where(t.notes.c.name=="name").group_by('format')
-        cb() # get results
+            # Set up cached queries with chained params or via call:
+            
+            cb.where(t.notes.c.name=="name").group_by(t.note_conversions.c.format)
+            cb() # get results
 
-        # - OR - # (use kwargs in the call; results returned right away)
+            # - OR - # (use strings when known)
 
-        cb(
-            where=(t.notes.c.name=="name"),
-            group_by='format'
-        )
-        ```
+            cb.where(t.notes.c.name=="name").group_by('format')
+            cb() # get results
 
+            # - OR - # (use kwargs in the call; results returned right away)
+
+            cb(
+                where=(t.notes.c.name=="name"),
+                group_by='format'
+            )
     '''
     def __init__(
         self,

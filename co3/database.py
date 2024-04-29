@@ -15,32 +15,34 @@ under one roof. This includes the Engine (opens up connections to the database),
 insert-like actions), and Indexers (systematically caching Accessor queries). Generalized
 behavior is supported by explicitly leveraging the individual components. For example,
 
-```
-with db.engine.connect() as connection:
-    db.access.select(
-        connection,
-        <query>
-    )
-    db.manager.insert(
-        connection,
-        component,
-        data
-    )
-```
+.. code-block:: python
+
+    with db.engine.connect() as connection:
+        db.access.select(
+            connection,
+            <query>
+        )
+        db.manager.insert(
+            connection,
+            component,
+            data
+        )
 
 The Database also supports a few directly callable methods for simplified interaction.
 These methods manage a connection context internally, passing them through the way they
 might otherwise be handled explicitly, as seen above.
 
-```
-db.select(<query>)
+.. code-block:: python
 
-db.insert(<query>, data)
-```
+    db.select(<query>)
+    
+    db.insert(<query>, data)
 
-Dev note: on explicit connection contexts
+
+.. admonition:: on explicit connection contexts
+
     Older models supported Accessors/Managers that housed their own Engine instances, and
-    when performing actions like `insert`, the Engine would be passed all the way through
+    when performing actions like ``insert``, the Engine would be passed all the way through
     until a Connection could be spawned, and in that context the single action would be
     made. This model forfeits a lot of connection control, preventing multiple actions
     under a single connection.
@@ -71,23 +73,23 @@ class Database[C: Component]:
     generic openness must be propagated here, as it's intended to be fully abstracted away
     under the Database roof. Note that we cannot explicitly use an Engine type in its
     place, as it obscures its internal resource type dependence when we need it for
-    hinting here in `__init__`.
+    hinting here in ``__init__``.
 
-    Development TODO list:
-        - Decide on official ruling for assigning Schema objects, and verifying any
-          attempted Component-based actions (e.g., inserts, selects) to belong to or be a
-          composition of Components within an attached Schema. Reasons for: helps complete
-          the sense of a "Database" here programmatically, incorporating a more
-          structurally accurate representation of allowed operations, and prevent possible
-          attribute and type collisions. Reasons against: generally not a huge concern to
-          align Schemas as transactions will rollback, broadly increases a bit of bulk,
-          and users often expected know which components belong to a particular DB.
-          Leaning more to **for**, and would only apply to the directly supported method
-          passthroughs (and thus would have no impact on independent methods like
-          `Accessor.raw_select`). Additionally, even if component clashes don't pose
-          serious risk, it can be helpful to systematically address the cases where a
-          misalignment is occurring (by having helpful `verify` methods that can be ran
-          before any actions).
+    .. admonition:: Development TODO list
+
+        Decide on official ruling for assigning Schema objects, and verifying any
+        attempted Component-based actions (e.g., inserts, selects) to belong to or be a
+        composition of Components within an attached Schema. Reasons for: helps complete
+        the sense of a "Database" here programmatically, incorporating a more structurally
+        accurate representation of allowed operations, and prevent possible attribute and
+        type collisions. Reasons against: generally not a huge concern to align Schemas as
+        transactions will rollback, broadly increases a bit of bulk, and users often
+        expected know which components belong to a particular DB. Leaning more to **for**,
+        and would only apply to the directly supported method passthroughs (and thus would
+        have no impact on independent methods like ``Accessor.raw_select``). Additionally,
+        even if component clashes don't pose serious risk, it can be helpful to
+        systematically address the cases where a misalignment is occurring (by having
+        helpful ``verify`` methods that can be ran before any actions).
     '''
     _accessor_cls: type[Accessor[C]] = Accessor[C]
     _manager_cls:  type[Manager[C]]  = Manager[C]
@@ -119,10 +121,12 @@ class Database[C: Component]:
 
     def select(self, component: C, *args, **kwargs):
         '''
-        Dev note: args and kwargs have to be general/unspecified here due to the possible
-        passthrough method adopting arbitrary parameters in subtypes. I could simply
-        overload this method in the relevant inheriting DBs (i.e., by matching the
-        expected Accessor's .select signature).
+        .. admonition:: Dev note
+
+            args and kwargs have to be general/unspecified here due to the possible
+            passthrough method adopting arbitrary parameters in subtypes. I could simply
+            overload this method in the relevant inheriting DBs (i.e., by matching the
+            expected Accessor's .select signature).
         '''
         with self.engine.connect() as connection:
             return self.accessor.select(
@@ -154,7 +158,7 @@ class Database[C: Component]:
     @property
     def manage(self):
         '''
-        Accessing `.manage` queues a cache clear on the external index, as well wipes the
+        Accessing ``.manage`` queues a cache clear on the external index, as well wipes the
         local index.
         '''
         self.reset_cache = True

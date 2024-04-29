@@ -66,7 +66,7 @@ class SQLTable(Relation[SQLTableLike]):
     def from_table(cls, table: sa.Table):
         '''
         Note that the sa.Table type is intentional here; not all matching types for
-        SQLTableLike have a defined `name` property
+        SQLTableLike have a defined ``name`` property
         '''
         return cls(table.name, table)
 

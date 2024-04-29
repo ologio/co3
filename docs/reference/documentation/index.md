@@ -1,8 +1,0 @@
-# Documentation
-
-```{toctree}
-:hidden:
-
-sphinx
-```
-

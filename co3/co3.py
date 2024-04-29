@@ -1,7 +1,7 @@
 '''
-CO4
+CO3
 
-CO4 is an abstract base class for scaffolding object hierarchies and managing operations
+CO3 is an abstract base class for scaffolding object hierarchies and managing operations
 with associated database schemas. It facilitates something like a "lightweight ORM" for
 classes/tables/states with fixed transformations of interest. The canonical use case is
 managing hierarchical document relations, format conversions, and syntactical components.
@@ -60,13 +60,16 @@ class FormatRegistryMeta(type):
 
 class CO3(metaclass=FormatRegistryMeta):
     '''
-    CO3: COllate, COllect, COmpose - conversion & DB insertion base
+    Conversion & DB insertion base class
+
+    CO3: COllate, COllect, COmpose
 
     - Collate: organize and transform conversion outputs, possibly across class components
     - Collect: gather core attributes, conversion data, and subcomponents for DB insertion
     - Compose: construct object-associated DB table references through the class hierarchy
 
-    Note: on action groups
+    .. admonition:: on action groups
+
         Group keys are simply named collections to make it easy for storage components to
         be attached to action subsets. They do _not_ augment the action registration
         namespace, meaning the action key should still be unique; the group key is purely
@@ -74,14 +77,14 @@ class CO3(metaclass=FormatRegistryMeta):
 
         Action methods can also be attached to several groups, in case there is
         overlapping utility within or across schemas or storage media. In this case, it
-        becomes particularly critical to ensure registered `collate` methods really are
+        becomes particularly critical to ensure registered ``collate`` methods really are
         just "gathering results" from possibly heavy-duty operations, rather than
         performing them when called, so as to reduce wasted computation.
     '''
     @property
     def attributes(self):
         '''
-        Method to define how a subtype's inserts should be handled under `collect` for
+        Method to define how a subtype's inserts should be handled under ``collect`` for
         canonical attributes, i.e., inserts to the type's table.
         '''
         return vars(self)
@@ -89,7 +92,7 @@ class CO3(metaclass=FormatRegistryMeta):
     @property
     def components(self):
         '''
-        Method to define how a subtype's inserts should be handled under `collect` for
+        Method to define how a subtype's inserts should be handled under ``collect`` for
         constituent components that need handling.
         '''
         return []
@@ -99,9 +102,9 @@ class CO3(metaclass=FormatRegistryMeta):
         Return "connective" collation component data, possibly dependent on
         instance-specific attributes and the action arguments. This is typically the
         auxiliary structure that may be needed to attach to responses from registered
-        `collate` calls to complete inserts.
+        ``collate`` calls to complete inserts.
 
-        Note: this method is primarily used by `Mapper.collect()`, and is called just
+        Note: this method is primarily used by ``Mapper.collect()``, and is called just
         prior to collector send-off for collation inserts and injected alongside collation
         data. Common structure in collation components can make this function easy to
         define, independent of action group for instance.

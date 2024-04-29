@@ -6,10 +6,11 @@ their representations in the database. It operates with full knowledge of how bo
 defined, and abstracts away both the prep work for DB insertions as well as updates
 trickling down the primitive hierarchy.
 
-The `src` format target is re-used for both canonical tables/primitives, as well as
-<prim>_conversion_matter tables in tables/conversions under the `src` format. The latter
-is meant to extend those attributes that are format-specific (i.e., would change when, say,
-converting to `html5`), and thus need to be broken across the format dimension.
+The ``src`` format target is re-used for both canonical tables/primitives, as well as
+``<prim>_conversion_matter`` tables in tables/conversions under the ``src`` format. The
+latter is meant to extend those attributes that are format-specific (i.e., would change
+when, say, converting to ``html5``), and thus need to be broken across the format
+dimension.
 
 Note:
     Despite the structure of the database module, this class does not currently inherit
@@ -46,8 +47,8 @@ class Collector[C: Component]:
     def _inserts_from_receipts(self, receipts: list[str]|None=None, pop=False):
         '''
         Group up added inserts by Component, often to be used directly for bulk insertion.
-        Optionally provide a list of `receipts` to group up only the corresponding subset of
-        inserts, and `pop` to remove encountered receipts from the internal store.
+        Optionally provide a list of ``receipts`` to group up only the corresponding subset of
+        inserts, and ``pop`` to remove encountered receipts from the internal store.
         '''
         inserts = defaultdict(list)
         
@@ -113,7 +114,7 @@ class Collector[C: Component]:
         The overall collection scheme embraces a session-like sequential update model to
         an internal insert tracker. The sequence of insert methods is ordered according to
         the schema hierarchy, and higher level inserts dictate the scope for lower level
-        inserts (all methods check and populate the same `inserts` dictionary). Calling
+        inserts (all methods check and populate the same ``inserts`` dictionary). Calling
         this method flushes any existing inserts, ensuring a re-scan takes place across
         calls (or "sessions").
 

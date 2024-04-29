@@ -1,6 +1,6 @@
 '''
 Note: Common on insert behavior
-    - Tables with unique constraints have been equipped with `sqlite_on_conflict_unique`
+    - Tables with unique constraints have been equipped with ``sqlite_on_conflict_unique``
       flags, enabling conflicting bulk inserts to replace conflicting rows gracefully. No
       need to worry about explicitly handling upserts.
     - The bulk insert via conn.execute(<insert>,<row_list>) automatically ignores
@@ -15,17 +15,17 @@ Note: Options for insert/update model
        the right approach since we defer as much to bulk SQL logic, but it's far and away
        the worse option b/c prepping all file/note/etc objects is too expensive to
        ultimately throw away when finding out an update isn't needed. For example, if we
-       wanted to perform note updates _inside_ the SQL call (like an `INSERT .. UPDATE ..
-       IF`, as opposed to determining the objects to insert _outside_ of the SQL call),
+       wanted to perform note updates _inside_ the SQL call (like an ``INSERT .. UPDATE ..
+       IF``, as opposed to determining the objects to insert _outside_ of the SQL call),
        you would need to bring each of the note's HTML prior to the insert check. There's
        no 2-stage processing here where you can check if the note needs to be converted
        b/c it's out of date, and only then perform the computation.
     2. Instantiate objects sequentially, each time checking with the DB to see if full
        processing is needed. This makes much more sense when the full processing is very
        expensive, as it is with Note conversion. This would iterate through available notes,
-       perform a `SELECT` on the target table to see if the note needs updating, and if so
+       perform a ``SELECT`` on the target table to see if the note needs updating, and if so
        perform the remaining computation. Those objects then get added to a "update object
-       list" to be inserted in bulk, but you make sequential `SELECT` checks before that.
+       list" to be inserted in bulk, but you make sequential ``SELECT`` checks before that.
     
        The one extra optimization you could maybe make here is doing a full SELECT on the
        target table and bring all rows into memory before iterating through the objects.
@@ -69,7 +69,7 @@ class SQLManager(RelationalManager[SQLTable]):
     of rows and bundle them under a single transaction. This is important for table groups
     with foreign keys and cascading deletions: inserts need to be coordinated. Note that
     actually collecting the inserts that need to take place is outside the scope of the
-    Manager (see the Collector). We do, however, implement a `sync` operation that can
+    Manager (see the Collector). We do, however, implement a ``sync`` operation that can
     saturates a router with events (dynamically) and sweeps up inserts on session basis
     from an attached collector.
     '''

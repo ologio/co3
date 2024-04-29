@@ -3,34 +3,34 @@ Design proposal: variable backends
 
 One particular feature not supported by the current type hierarchy is the possible use of
 different backends to implement a general interface like SQLAccessor. One could imagine,
-for instance, using `sqlalchemy` or `sqlite` to define the same methods laid out in a
+for instance, using ``sqlalchemy`` or ``sqlite`` to define the same methods laid out in a
 parent class blueprint. It's not too difficult to imagine cases where both of these may be
 useful, but for now it is outside the development scope. Should it ever enter the scope,
-however, we might consider a simple `backend` argument on instantiation, keeping just the
+however, we might consider a simple ``backend`` argument on instantiation, keeping just the
 SQLAccessor exposed rather than a whole set of backend-specific types:
 
-```py
-class SQLAlchemyAccessor(RelationalAccessor): # may also inherit from a dedicated interface parent
-    def select(...):
-        ...
+.. code-block:: python
 
-class SQLiteAccessor(RelationalAccessor): 
-    def select(...):
-        ...
+    class SQLAlchemyAccessor(RelationalAccessor): # may also inherit from a dedicated interface parent
+        def select(...):
+            ...
+    
+    class SQLiteAccessor(RelationalAccessor): 
+        def select(...):
+            ...
+    
+    class SQLAccessor(RelationalAccessor): 
+        backends = {
+            'sqlalchemy': SQLAlchemyAccessor,
+            'sqlite':     SQLteAccessor,
+        }
+    
+        def __init__(self, backend: str):
+            self.backend = self.backends.get(backend)
+    
+        def select(...):
+            return self.backend.select(...)
 
-class SQLAccessor(RelationalAccessor): 
-    backends = {
-        'sqlalchemy': SQLAlchemyAccessor,
-        'sqlite':     SQLteAccessor,
-    }
-
-    def __init__(self, backend: str):
-        self.backend = self.backends.get(backend)
-
-    def select(...):
-        return self.backend.select(...)
-
-```
 
 For now, we can look at SQLAccessor (and equivalents in other type hierarchies, like
 SQLManagers) as being SQLAlchemyAccessors and not supporting any backend swapping. But in
@@ -130,7 +130,7 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
     ): # -> list[dict|sa.Mapping]: (double check the Mapping types)
         '''
         Perform a SELECT query against the provided table-like object (see
-        `check_table()`).
+        ``check_table()``).
 
         Deprecated: String aliases
             String aliases for tables are no longer supported. This method no longer checks
@@ -177,7 +177,7 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
         Parse SQLAlchemy results into Python dicts. Leverages mappings to associate full
         column name context.
 
-        If `query_cols` is provided, their implicit names will be used for the keys of the
+        If ``query_cols`` is provided, their implicit names will be used for the keys of the
         returned dictionaries. This information is not available under CursorResults and thus
         must be provided separately. This will yield results like the following:
 
