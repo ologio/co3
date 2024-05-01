@@ -15,6 +15,11 @@ class Vegetable(CO3):
         self.name = name
         self.color = color
 
+    #@abstractmethod
+    @collate
+    def cut(self, method):
+        raise NotImplementedError
+
 class Tomato(Vegetable):
     def __init__(self, name, radius):
         super().__init__(name, 'red')
@@ -24,29 +29,39 @@ class Tomato(Vegetable):
     def attributes(self):
         return vars(self)
         
-    def collation_attributes(self, action_key, action_group):
+    def collation_attributes(self, key, group):
         return {
             'name': self.name,
-            'state': action_key,
+            'state': key,
         }
 
-    @collate('ripe', action_groups=['aging'])
+    @collate('ripe', groups=['aging'])
     def ripen(self):
         return {
             'age': random.randint(1, 6)
         }
 
-    @collate('rotten', action_groups=['aging'])
+    @collate('rotten', groups=['aging'])
     def rot(self):
         return {
             'age': random.randint(4, 9)
         }
         
-    @collate('diced', action_groups=['cooking'])
+    @collate('diced', groups=['cooking'])
     def dice(self):
         return {
             'pieces': random.randint(2, 12)
         }
+
+    @collate
+    def cut(self, method):
+        if method == 'slice':
+            return {
+                'pieces': random.randint(2, 5)
+            }
+        elif method == 'dice':
+            return self.dice()
+
 
 type_list = [Vegetable, Tomato]
 
@@ -114,8 +129,8 @@ vegetable_mapper = ComposableMapper(
 def attr_name_map(cls):
     return f'{cls.__name__.lower()}'
 
-def coll_name_map(cls, action_group):
-    return f'{cls.__name__.lower()}_{action_group}_states'
+def coll_name_map(cls, group):
+    return f'{cls.__name__.lower()}_{group}_states'
 
 vegetable_mapper.attach_many(
     type_list,

@@ -1,8 +1,6 @@
 '''
-Mapper
-
 Used to house useful objects for storage schemas (e.g., SQLAlchemy table definitions).
-Provides a general interface for mapping from CO4 class names to storage structures for
+Provides a general interface for mapping from CO3 class names to storage structures for
 auto-collection and composition.
 
 Example:
@@ -32,6 +30,7 @@ Example:
       hierarchy). As such, to fully collect from a type, the Mapper needs to leave
       registration open to various types, not just those part of the same hierarchy.
 '''
+import logging
 from typing import Callable, Any
 from collections import defaultdict
 
@@ -41,6 +40,8 @@ from co3.collector  import Collector
 from co3.component  import Component
 from co3.components import ComposableComponent
 
+
+logger = logging.getLogger(__name__)
 
 class Mapper[C: Component]:
     '''
@@ -60,7 +61,7 @@ class Mapper[C: Component]:
 
     .. admonition:: Dev note
 
-        the Composer needs reconsideration, or at least its positioning directly in this
+        The Composer needs reconsideration, or at least its positioning directly in this
         class. It may be more appropriate to have at the Schema level, or even just
         dissolved altogether if arbitrary named Components can be attached to schemas.
 
@@ -82,19 +83,27 @@ class Mapper[C: Component]:
         self.attribute_comps:  dict[type[CO3], C] = {}
         self.collation_groups: dict[type[CO3], dict[str|None, C]] = defaultdict(dict)
 
-    def _check_component(self, comp: str | C):
+    def _check_component(self, comp: str | C, strict=True):
         if type(comp) is str:
             comp_key = comp
             comp = self.schema.get_component(comp_key)
             if comp is None:
-                raise ValueError(
-                    f'Component key {comp_key} not available in attached schema'
-                )
+                err_msg = f'Component key "{comp_key}" not available in attached schema'
+
+                if strict:
+                    raise ValueError(err_msg)
+                else:
+                    logger.info(err_msg)
+                    return None
         else:
             if comp not in self.schema:
-                raise TypeError(
-                    f'Component {comp} not registered to Mapper schema {self.schema}'
-                )
+                err_msg = f'Component "{comp}" not registered to Mapper schema {self.schema}'
+
+                if strict:
+                    raise TypeError(err_msg)
+                else:
+                    logger.info(err_msg)
+                    return None
 
         return comp
 
@@ -104,6 +113,7 @@ class Mapper[C: Component]:
         attr_comp   : str | C,
         coll_comp   : str | C | None                   = None,
         coll_groups : dict[str | None, str | C] | None = None,
+        strict                                         = True,
     ) -> None:
         '''
         Parameters:
@@ -115,18 +125,18 @@ class Mapper[C: Component]:
                          names to components
         '''
         # check attribute component in registered schema
-        attr_comp = self._check_component(attr_comp)
+        attr_comp = self._check_component(attr_comp, strict=strict)
         self.attribute_comps[type_ref] = attr_comp
 
         # check default component in registered schema
         if coll_comp is not None:
-            coll_comp = self._check_component(coll_comp)
+            coll_comp = self._check_component(coll_comp, strict=strict)
             self.collation_groups[type_ref][None] = coll_comp
 
         # check if any component in group dict not in registered schema
         if coll_groups is not None:
             for coll_key in coll_groups:
-                coll_groups[coll_key] = self._check_component(coll_groups[coll_key])
+                coll_groups[coll_key] = self._check_component(coll_groups[coll_key], strict=strict)
 
             self.collation_groups[type_ref].update(coll_groups)
 
@@ -135,6 +145,7 @@ class Mapper[C: Component]:
         type_list: list[type[CO3]],
         attr_name_map: Callable[[type[CO3]], str | C],
         coll_name_map: Callable[[type[CO3], str], str | C] | None = None,
+        strict                                                    = False,
     ) -> None:
         '''
         Auto-register a set of types to the Mapper's attached Schema. Associations are
@@ -156,10 +167,10 @@ class Mapper[C: Component]:
             coll_groups = {}
 
             if coll_name_map:
-                for action_group in _type.group_registry:
-                    coll_groups[action_group] = coll_name_map(_type, action_group)
+                for group in _type.group_registry:
+                    coll_groups[group] = coll_name_map(_type, group)
 
-            self.attach(_type, attr_comp, coll_groups=coll_groups)
+            self.attach(_type, attr_comp, coll_groups=coll_groups, strict=strict)
 
     def get_attr_comp(
         self,
@@ -185,8 +196,8 @@ class Mapper[C: Component]:
     def collect(
         self,
         obj           : CO3,
-        action_keys   : list[str] = None,
-        action_groups : list[str] = None,
+        keys   : list[str] = None,
+        groups : list[str] = None,
     ) -> list:
         '''
         Stages inserts up the inheritance chain, and down through components.
@@ -201,15 +212,15 @@ class Mapper[C: Component]:
 
         Parameters:
             obj: CO3 instance to collect from
-            action_keys: keys for actions to collect from
-            action_group: action group names to run all actions for
+            keys: keys for actions to collect from
+            group: action group names to run all actions for
 
         Returns: dict with keys and values relevant for associated SQLite tables
         '''
         # default is to have no actions
-        if action_keys is None:
-            action_keys = []
-            #action_keys = list(obj.action_registry.keys())
+        if keys is None:
+            keys = []
+            #keys = list(obj.key_registry.keys())
 
         receipts = []
         for _cls in reversed(obj.__class__.__mro__[:-2]):
@@ -225,22 +236,22 @@ class Mapper[C: Component]:
                 receipts=receipts,
             )
 
-            for action_key in action_keys:
-                collation_data = obj.collate(action_key)
+            for key in keys:
+                collation_data = obj.collate(key)
 
                 # if method either returned no data or isn't registered, ignore
                 if collation_data is None:
                     continue
 
-                _, action_groups = obj.action_registry.get(action_key, (None, []))
-                for action_group in action_groups:
-                    collation_component = self.get_coll_comp(_cls, group=action_group)
+                _, groups = obj.key_registry.get(key, (None, []))
+                for group in groups:
+                    collation_component = self.get_coll_comp(_cls, group=group)
 
                     if collation_component is None:
                         continue
 
                     # gather connective data for collation components
-                    connective_data = obj.collation_attributes(action_key, action_group)
+                    connective_data = obj.collation_attributes(key, group)
 
                     self.collector.add_insert(
                         collation_component,
@@ -345,7 +356,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
     def compose(
         self,
         co3_ref:       CO3 | type[CO3],
-        action_groups: list[str] | None = None,
+        groups: list[str] | None = None,
         *compose_args,
         **compose_kwargs,
     ):
@@ -375,9 +386,9 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
             # compose horizontally with components from provided action groups
             coll_comp_agg = attr_comp
-            if action_groups is not None:
-                for action_group in action_groups:
-                    coll_comp = self.get_coll_comp(_cls, group=action_group)
+            if groups is not None:
+                for group in groups:
+                    coll_comp = self.get_coll_comp(_cls, group=group)
 
                     if coll_comp is None:
                         continue

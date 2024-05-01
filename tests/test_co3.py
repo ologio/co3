@@ -11,13 +11,18 @@ def test_co3_registry():
     keys_to_groups = defaultdict(list)
 
     # collect groups each key is associated
-    for action_group, action_keys in tomato.group_registry.items():
-        for action_key in action_keys:
-            keys_to_groups[action_key].append(action_group)
+    for group, keys in tomato.group_registry.items():
+        for key in keys:
+            keys_to_groups[key].append(group)
 
-    # check against `action_registry`, should map keys to all groups
-    for action_key, (_, action_groups) in tomato.action_registry.items():
-        assert keys_to_groups.get(action_key) == action_groups
+    assert set(tomato.key_registry.get(None,{}).keys()) == set(keys_to_groups.get(None,[]))
+
+    # check against `registry`, should map keys to all groups
+    for key, group_obj in tomato.key_registry.items():
+        if key is None: continue
+
+        _, groups = group_obj
+        assert keys_to_groups.get(key) == groups
 
 def test_co3_attributes():
     assert tomato.attributes is not None
@@ -26,11 +31,12 @@ def test_co3_components():
     assert tomato.components is not None
 
 def test_co3_collation_attributes():
-    for action_group, action_keys in tomato.group_registry.items():
-        for action_key in action_keys:
-            assert tomato.collation_attributes(action_key, action_group) is not None
+    for group, keys in tomato.group_registry.items():
+        for key in keys:
+            assert tomato.collation_attributes(key, group) is not None
 
 def test_co3_collate():
-    for action_group, action_keys in tomato.group_registry.items():
-        for action_key in action_keys:
-            assert tomato.collate(action_key) is not None
+    for group, keys in tomato.group_registry.items():
+        for key in keys:
+            if key is None: continue
+            assert tomato.collate(key) is not None
