@@ -3,6 +3,7 @@ __pycache__/
 .pytest_cache/
 localsys.egg-info/
 .ipynb_checkpoints/
+.pytest_cache/
 .python-version
 
 # vendor and build files

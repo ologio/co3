@@ -1,10 +1,9 @@
+import time
 import pickle
 import logging
 from pathlib import Path
-import time
 
 import sqlalchemy as sa
-#from sentence_transformers import SentenceTransformer, util
 
 from co3.accessor import Accessor
 
@@ -55,10 +54,11 @@ class VSSAccessor(Accessor):
             normalize_embeddings = True
         )
 
-    def search(
+    def select(
         self,
-        query      : str,
+        connection,
         index_name : str,
+        query      : str,
         limit      : int = 10,
         score_threshold = 0.5,
     ):

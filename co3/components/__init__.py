@@ -111,6 +111,9 @@ class SQLTable(Relation[SQLTableLike]):
             self.obj.join(_with.obj, on, isouter=outer)
         )
 
+class FTSTable(Relation[SQLTableLike]):
+    pass
+
 # key-value stores
 class Dictionary(Relation[dict]):
     def get_attributes(self):

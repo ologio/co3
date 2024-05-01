@@ -1,62 +1,58 @@
 '''
-Design proposal: variable backends
+.. admonition:: Design proposal: variable backends
 
-One particular feature not supported by the current type hierarchy is the possible use of
-different backends to implement a general interface like SQLAccessor. One could imagine,
-for instance, using ``sqlalchemy`` or ``sqlite`` to define the same methods laid out in a
-parent class blueprint. It's not too difficult to imagine cases where both of these may be
-useful, but for now it is outside the development scope. Should it ever enter the scope,
-however, we might consider a simple ``backend`` argument on instantiation, keeping just the
-SQLAccessor exposed rather than a whole set of backend-specific types:
-
-.. code-block:: python
-
-    class SQLAlchemyAccessor(RelationalAccessor): # may also inherit from a dedicated interface parent
-        def select(...):
-            ...
+    One particular feature not supported by the current type hierarchy is the possible use of
+    different backends to implement a general interface like SQLAccessor. One could imagine,
+    for instance, using ``sqlalchemy`` or ``sqlite`` to define the same methods laid out in a
+    parent class blueprint. It's not too difficult to imagine cases where both of these may be
+    useful, but for now it is outside the development scope. Should it ever enter the scope,
+    however, we might consider a simple ``backend`` argument on instantiation, keeping just the
+    SQLAccessor exposed rather than a whole set of backend-specific types:
     
-    class SQLiteAccessor(RelationalAccessor): 
-        def select(...):
-            ...
+    .. code-block:: python
     
-    class SQLAccessor(RelationalAccessor): 
-        backends = {
-            'sqlalchemy': SQLAlchemyAccessor,
-            'sqlite':     SQLteAccessor,
-        }
+        class SQLAlchemyAccessor(RelationalAccessor): # may also inherit from a dedicated interface parent
+            def select(...):
+                ...
+        
+        class SQLiteAccessor(RelationalAccessor): 
+            def select(...):
+                ...
+        
+        class SQLAccessor(RelationalAccessor): 
+            backends = {
+                'sqlalchemy': SQLAlchemyAccessor,
+                'sqlite':     SQLteAccessor,
+            }
+        
+            def __init__(self, backend: str):
+                self.backend = self.backends.get(backend)
+        
+            def select(...):
+                return self.backend.select(...)
     
-        def __init__(self, backend: str):
-            self.backend = self.backends.get(backend)
     
-        def select(...):
-            return self.backend.select(...)
-
-
-For now, we can look at SQLAccessor (and equivalents in other type hierarchies, like
-SQLManagers) as being SQLAlchemyAccessors and not supporting any backend swapping. But in
-theory, to make the above change, we'd just need to rename it and wrap it up.
+    For now, we can look at SQLAccessor (and equivalents in other type hierarchies, like
+    SQLManagers) as being SQLAlchemyAccessors and not supporting any backend swapping. But in
+    theory, to make the above change, we'd just need to rename it and wrap it up.
 '''
-
-from pathlib import Path
-from collections.abc import Iterable
 import inspect
-from functools import cache
+from pathlib import Path
 
 import sqlalchemy as sa
 
-from co3 import util
 from co3.engines import SQLEngine
 from co3.accessor import Accessor
 from co3.components import Relation, SQLTable
 
 
 class RelationalAccessor[R: Relation](Accessor[R]):
+    @staticmethod
     def raw_select(
         self, 
         connection,
         text: str
     ):
-        #connection.exec
         raise NotImplementedError
 
     def select(
@@ -110,6 +106,7 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
             bind_params=bind_params,
             include_cols=include_cols
         )
+        self.log_access(sql)
 
         if mappings:
             return res.mappings().all()
@@ -165,6 +162,7 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
             statement = statement.limit(limit)
 
         res = SQLEngine.execute(connection, statement, include_cols=include_cols)
+        self.log_access(statement)
 
         if mappings:
             return res.mappings().all()
@@ -181,11 +179,15 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
         returned dictionaries. This information is not available under CursorResults and thus
         must be provided separately. This will yield results like the following:
 
-        [..., {'table1.col':<value>, 'table2.col':<value>, ...}, ...]
+        .. code-block:: python
+
+            [..., {'table1.col':<value>, 'table2.col':<value>, ...}, ...]
 
         Instead of the automatic mapping names:
 
-        [..., {'col':<value>, 'col_1':<value>, ...}, ...]
+        .. code-block:: python
+
+            [..., {'col':<value>, 'col_1':<value>, ...}, ...]
 
         which can make accessing certain results a little more intuitive. 
         '''

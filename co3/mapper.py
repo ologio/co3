@@ -59,6 +59,7 @@ class Mapper[C: Component]:
     inserts (hence why we tie Mappers to Schemas one-to-one). 
 
     .. admonition:: Dev note
+
         the Composer needs reconsideration, or at least its positioning directly in this
         class. It may be more appropriate to have at the Schema level, or even just
         dissolved altogether if arbitrary named Components can be attached to schemas.

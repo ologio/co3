@@ -1,10 +1,9 @@
 '''
-Accessor
-
 Provides access to an underlying schema through a supported set of operations. Class
 methods could be general, high-level SQL wrappers, or convenience functions for common
 schema-specific queries.
 '''
+import time
 import inspect
 from pathlib import Path
 from collections import defaultdict
@@ -23,7 +22,16 @@ class Accessor[C: Component](metaclass=ABCMeta):
     Parameters:
         engine: SQLAlchemy engine to use for queries. Engine is initialized dynamically as
                 a property (based on the config) if not provided
+
+    Instance variables:
+        access_log: time-indexed log of access queries performed
     '''
+    def __init__(self):
+        self.access_log = {}
+
+    def log_access(self, stmt):
+        self.access_log[time.time()] = f'{stmt}'
+
     @abstractmethod
     def raw_select(
         self,
@@ -36,7 +44,7 @@ class Accessor[C: Component](metaclass=ABCMeta):
     def select(
         self,
         connection,
-        component: C,
+        component: str | C,
         *args,
         **kwargs
     ):
