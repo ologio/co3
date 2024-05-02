@@ -213,16 +213,58 @@ class Mapper[C: Component]:
         Parameters:
             obj: CO3 instance to collect from
             keys: keys for actions to collect from
-            group: action group names to run all actions for
+            group: group contexts for the keys to collect from. If None, explicit group
+                   contexts registered for the keys will be inferred (but implicit groups
+                   will not be detected).
 
-        Returns: dict with keys and values relevant for associated SQLite tables
+        Returns: collector receipts for staged inserts
         '''
         # default is to have no actions
         if keys is None:
             keys = []
             #keys = list(obj.key_registry.keys())
 
+        collation_data = defaultdict(dict)
+        for key in keys:
+            # keys must be defined
+            if key is None:
+                continue
+
+            # if groups not specified, dynamically grab those explicitly attached groups
+            # for each key
+            group_dict = {}
+            if groups is None:
+                group_dict = obj.key_registry.get(key, {})
+            else:
+                for group in groups:
+                    group_dict[group] = obj.key_registry.get(key, {}).get(group)
+
+            # method regroup: under key, index by method and run once per
+            method_groups = defaultdict(list)
+            for group_name, group_method in group_dict.items():
+                method_groups[group_method].append(group_name)
+
+            # collate for method equivalence classes; only need on representative group to
+            # pass to CO3.collate to call the method
+            key_collation_data = {}
+            for collation_method, collation_groups in method_groups.items():
+                key_method_collation_data = obj.collate(key, group=collation_groups[0])
+
+                for collation_group in collation_groups:
+                    # gather connective data for collation components
+                    # -> we do this here as it's obj dependent
+                    connective_data = obj.collation_attributes(key, collation_group)
+
+                    key_collation_data[collation_group] = {
+                        **connective_data,
+                        **key_method_collation_data, 
+                    }
+
+            collation_data[key] = key_collation_data
+
         receipts = []
+        attributes = obj.attributes
+
         for _cls in reversed(obj.__class__.__mro__[:-2]):
             attribute_component = self.get_attr_comp(_cls)
 
@@ -232,33 +274,24 @@ class Mapper[C: Component]:
 
             self.collector.add_insert(
                 attribute_component,
-                obj.attributes,
+                attributes,
                 receipts=receipts,
             )
 
-            for key in keys:
-                collation_data = obj.collate(key)
-
+            for key, key_collation_data in collation_data.items():
                 # if method either returned no data or isn't registered, ignore
-                if collation_data is None:
+                if not key_collation_data:
                     continue
 
-                _, groups = obj.key_registry.get(key, (None, []))
-                for group in groups:
+                for group, group_collation_data in key_collation_data.items():
                     collation_component = self.get_coll_comp(_cls, group=group)
 
                     if collation_component is None:
                         continue
 
-                    # gather connective data for collation components
-                    connective_data = obj.collation_attributes(key, group)
-
                     self.collector.add_insert(
                         collation_component,
-                        {
-                            **connective_data,
-                            **collation_data, 
-                        },
+                        group_collation_data,
                         receipts=receipts,
                     )
 

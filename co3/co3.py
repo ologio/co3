@@ -150,27 +150,17 @@ class FormatRegistryMeta(type):
     Metaclass handling collation registry at the class level.
     '''
     def __new__(cls, name, bases, attrs):
-        key_registry = {}
-        group_registry = defaultdict(list)
+        key_registry = defaultdict(dict)
+        group_registry = defaultdict(set)
 
         def register_action(method):
             nonlocal key_registry, group_registry
 
             if hasattr(method, '_collation_data'):
                 key, groups = method._collation_data
-
-                if key is None:
-                    # only add a "None" entry if there is _some_ implicit group
-                    if None not in key_registry:
-                        key_registry[None] = {}
-
-                    # only a single group possible here
-                    key_registry[None][groups[0]] = method
-                else:
-                    key_registry[key] = (method, groups)
-
                 for group in groups:
-                    group_registry[group].append(key)
+                    key_registry[key][group] = method
+                    group_registry[group].add(key)
 
         # add registered superclass methods; iterate over bases (usually just one), then
         # that base's chain down (reversed), then methods from each subclass
@@ -244,6 +234,14 @@ class CO3(metaclass=FormatRegistryMeta):
         return {}
 
     def collate(self, key, group=None, *args, **kwargs):
+        '''
+        Note:
+            This method is sensitive to group specification. By default, the provided key
+            will be checked against the default ``None`` group, even if that key is only
+            attached to non-default groups. Collation actions are unique on key-group
+            pairs, so more specificity is generally required to correctly execute desired
+            actions (otherwise, rely more heavily on the default group).
+        '''
         if key is None:
             return None
 
@@ -258,13 +256,19 @@ class CO3(metaclass=FormatRegistryMeta):
             method = self.key_registry[None].get(group)
             if method is None:
                 logger.debug(
-                    f'Collation key "{key}" not registered and group {group} not implicit'
+                    f'Collation key "{key}" not registered and group "{group}" not implicit'
                 )
                 return None
 
             return method(self, key, *args, **kwargs)
         else:
-            method = self.key_registry[key][0]
+            method = self.key_registry[key].get(group)
+            if method is None:
+                logger.debug(
+                    f'Collation key "{key}" registered, but group "{group}" is not available'
+                )
+                return None
+
             return method(self, *args, **kwargs)
 
 

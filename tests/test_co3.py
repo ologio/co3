@@ -18,11 +18,8 @@ def test_co3_registry():
     assert set(tomato.key_registry.get(None,{}).keys()) == set(keys_to_groups.get(None,[]))
 
     # check against `registry`, should map keys to all groups
-    for key, group_obj in tomato.key_registry.items():
-        if key is None: continue
-
-        _, groups = group_obj
-        assert keys_to_groups.get(key) == groups
+    for key, group_dict in tomato.key_registry.items():
+        assert keys_to_groups.get(key) == list(group_dict.keys())
 
 def test_co3_attributes():
     assert tomato.attributes is not None
@@ -39,4 +36,4 @@ def test_co3_collate():
     for group, keys in tomato.group_registry.items():
         for key in keys:
             if key is None: continue
-            assert tomato.collate(key) is not None
+            assert tomato.collate(key, group=group) is not None
