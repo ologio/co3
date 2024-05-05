@@ -119,6 +119,9 @@ class Database[C: Component]:
         self._local_cache = {}
         self._reset_cache = False
 
+    def raw_query(self, connection, query):
+        raise NotImplementedError
+
     def select(self, component: C, *args, **kwargs):
         '''
         .. admonition:: Dev note

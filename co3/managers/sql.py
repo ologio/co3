@@ -75,7 +75,7 @@ class SQLManager(RelationalManager[SQLTable]):
     '''
     def __init__(self, *args, **kwargs):
         '''
-        The insert lock is a _reentrant lock_, meaning the same thread can acquire the
+        The insert lock is a *reentrant lock*, meaning the same thread can acquire the
         lock again without deadlocking (simplifying across methods of this class that
         need it).
         '''
@@ -132,7 +132,8 @@ class SQLManager(RelationalManager[SQLTable]):
 
     def insert_many(self, connection, inserts: dict):
         '''
-        Perform provided table inserts.
+        Perform provided table inserts, aligning the insert format of
+        ``Collector.collect_inserts()``.
 
         Parameters:
             inserts: component-indexed dictionary of insert lists

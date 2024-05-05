@@ -12,6 +12,8 @@ from co3 import util
 
 class Vegetable(CO3):
     def __init__(self, name, color):
+        super().__init__()
+
         self.name = name
         self.color = color
 

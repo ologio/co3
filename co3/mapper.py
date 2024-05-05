@@ -31,6 +31,7 @@ Example:
       registration open to various types, not just those part of the same hierarchy.
 '''
 import logging
+from inspect import signature
 from typing import Callable, Any
 from collections import defaultdict
 
@@ -230,6 +231,8 @@ class Mapper[C: Component]:
             if key is None:
                 continue
 
+            logger.debug(f'Collecting for key "{key}"')
+
             # if groups not specified, dynamically grab those explicitly attached groups
             # for each key
             group_dict = {}
@@ -244,16 +247,27 @@ class Mapper[C: Component]:
             for group_name, group_method in group_dict.items():
                 method_groups[group_method].append(group_name)
 
+            logger.debug(f'Equivalence classes: "{list(method_groups.values())}"')
+
             # collate for method equivalence classes; only need on representative group to
             # pass to CO3.collate to call the method
             key_collation_data = {}
             for collation_method, collation_groups in method_groups.items():
                 key_method_collation_data = obj.collate(key, group=collation_groups[0])
 
+                if key_method_collation_data is None:
+                    logger.debug(
+                        f'Equivalence class "{collation_groups}" yielded no data, skipping'
+                    )
+                    continue
+
                 for collation_group in collation_groups:
                     # gather connective data for collation components
                     # -> we do this here as it's obj dependent
                     connective_data = obj.collation_attributes(key, collation_group)
+
+                    if connective_data is None:
+                        connective_data = {}
 
                     key_collation_data[collation_group] = {
                         **connective_data,
@@ -297,7 +311,7 @@ class Mapper[C: Component]:
 
         # handle components
         for comp in [c for c in obj.components if isinstance(c, CO3)]:
-            receipts.extend(comp.collect(collector, formats=formats))
+            receipts.extend(self.collect(comp, keys=keys, groups=groups))
 
         return receipts
 
@@ -402,6 +416,9 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
             not be explicitly clear how some JOINs should be handled up the inheritance
             chain (for components / sa.Relationships, it's a little easier).
 
+
+        .. admonition:: On compose order
+
         Parameters:
             obj: either a CO3 instance or a type reference
         '''
@@ -409,7 +426,9 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
         if isinstance(co3_ref, CO3):
             type_ref = co3_ref.__class__
 
-        attr_comp_agg = None
+        comp_agg = None
+        last_attr_comp = None
+        last_coll_comps = None
         for _cls in reversed(type_ref.__mro__[:-2]):
             attr_comp = self.get_attr_comp(_cls)
 
@@ -417,8 +436,26 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
             if attr_comp is None:
                 continue
 
+            if comp_agg is None:
+                comp_agg = attr_comp
+            else:
+                # note the reduced attr_comp (produced this iteration) and the
+                # last_attr_comp (last iteration) refs passed to compose map, rather than
+                # their aggregated counterparts. This is because compose conditions often
+                # need to be specified between *atomic* components within compositional
+                # components, as compositions don't also expose the necessary attributes
+                # (or if they do, they aren't necessarily unique; e.g., JOIN two
+                # SQLAlchemy tables does not allow direct column access).
+                compose_condition = self.attr_compose_map(last_attr_comp, attr_comp)
+                comp_agg = comp_agg.compose(
+                    attr_comp,
+                    compose_condition,
+                    *compose_args,
+                    **compose_kwargs,
+                )
+
             # compose horizontally with components from provided action groups
-            coll_comp_agg = attr_comp
+            coll_list = []
             if groups is not None:
                 for group in groups:
                     coll_comp = self.get_coll_comp(_cls, group=group)
@@ -426,29 +463,30 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
                     if coll_comp is None:
                         continue
 
+                    # valid collation comps added to coll_list, to be passed to the
+                    # coll_map in the next iteration
+                    coll_list.append(coll_comp)
+
                     # note how the join condition is specified using the non-composite
                     # `attr_comp` and new `coll_comp`; the composite doesn't typically
                     # have the same attribute access and needs a ref to a specific comp
-                    compose_condition = self.coll_compose_map(attr_comp, coll_comp)
+                    if len(signature(self.coll_compose_map).parameters) > 2:
+                        compose_condition = self.coll_compose_map(
+                            attr_comp,
+                            coll_comp,
+                            last_coll_comps
+                        )
+                    else:
+                        compose_condition = self.coll_compose_map(attr_comp, coll_comp)
 
-                    coll_comp_agg = coll_comp_agg.compose(
+                    comp_agg = comp_agg.compose(
                         coll_comp,
                         compose_condition,
                         *compose_args,
                         **compose_kwargs,
                     )
 
-            if attr_comp_agg is None:
-                attr_comp_agg = coll_comp_agg
-            else:
-                # note the reduced attr_comp ref passed to compose map, rather than
-                # coll_comp_agg produced above; this is provided as the compose comp, though
-                compose_condition = self.attr_compose_map(attr_comp_agg, attr_comp)
-                attr_comp_agg = attr_comp_agg.compose(
-                    coll_comp_agg,
-                    compose_condition,
-                    *compose_args,
-                    **compose_kwargs,
-                )
+            last_attr_comp = attr_comp
+            last_coll_comps = coll_list
 
-        return attr_comp_agg
+        return comp_agg

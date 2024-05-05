@@ -95,14 +95,14 @@ class SQLAccessor(RelationalAccessor[SQLTable]):
     def raw_select(
         self,
         connection,
-        sql,
+        sql: str,
         bind_params=None,
         mappings=False,
         include_cols=False,
     ):
         res = SQLEngine.execute(
             connection,
-            sql,
+            sa.text(sql),
             bind_params=bind_params,
             include_cols=include_cols
         )

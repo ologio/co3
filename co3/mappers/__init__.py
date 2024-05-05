@@ -3,7 +3,7 @@ from typing import Self
 import sqlalchemy as sa
 
 from co3.mapper import Mapper
-from co3.component import ComposableComponent
+from co3.components import ComposableComponent
 
 
 class ComposableMapper[C: ComposableComponent](Mapper[C]):

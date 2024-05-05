@@ -19,6 +19,61 @@ Generic collation syntax:
         def key(self):
             # key-specific logic
             ...
+
+.. admonition:: On multi-key attachment
+
+    One possible quirk of the current collation registry scheme is the rather black and
+    white nature of key attachment. You either specify a single key, possibly to several
+    groups, or allow any key via passthrough under an implicit group. There's no explicit
+    "multi-key" pattern to make use of here, be it through "restricted passthrough"
+    (method still parameterized by the key, but only allows keys from a provided list) or
+    just simple duplicated attachment. To demonstrate via the above example:
+
+    .. code-block:: python
+
+        class Type(CO3):
+
+            @collate(['key1', 'key2'], groups=['group1', 'group2'])
+            def keys(self, key):
+                # accept key as arg, but can only be 'key1' or 'key2'
+                ...
+
+    This could be integrated straightforwardly in the existing registration handler, but
+    for the time being, it muddies the waters too much for the convenience it provides.
+    For starters, this isn't an all too common pattern, and you possibly open up a
+    slippery slope of the allowed key spec for a given method (wildcards/regex patterns?
+    combinatorial O(nm) key (n) group (m) pairs to register?). It can also be handled in a
+    few very simple ways if needed, either via full passthrough with an internal check:
+
+    .. code-block:: python
+
+            @collate(groups=['group1', 'group2'])
+            def keys(self, key):
+                if key not in ['key1', 'key2']:
+                    return None
+
+                ...
+
+    or with a central handler and separate collation points (at least when the key list is
+    small):
+
+    .. code-block:: python
+
+            def _handle_supported_keys(self, key):
+                # expects only supported keys, e.g., 'key1' and 'key2'
+                ...
+                
+            @collate('key1')
+            def key1(self):
+                self._handle_supported_keys('key1')
+
+            @collate('key2')
+            def key2(self):
+                self._handle_supported_keys('key2')
+
+    The former scales better and allows general key rejection patterns if needed, while
+    the latter integrates a bit better with the formal collation process, e.g., will
+    throw ``ValueErrors`` based on key mismatches automatically.
 '''
 import inspect
 import logging
@@ -182,9 +237,7 @@ class FormatRegistryMeta(type):
 
 class CO3(metaclass=FormatRegistryMeta):
     '''
-    Conversion & DB insertion base class
-
-    CO3: COllate, COllect, COmpose
+    Base class supporting the central "COllate, COllect, COmpose" paradigm.
 
     - Collate: organize and transform conversion outputs, possibly across class components
     - Collect: gather core attributes, conversion data, and subcomponents for DB insertion
@@ -202,7 +255,16 @@ class CO3(metaclass=FormatRegistryMeta):
         becomes particularly critical to ensure registered ``collate`` methods really are
         just "gathering results" from possibly heavy-duty operations, rather than
         performing them when called, so as to reduce wasted computation.
+
+    .. admonition:: New: collation caching
+
+        To help facilitate the common pattern of storing collation results, a
+        ``collate_cache`` parameter has been added to store key-group indexed collation
+        results. (Note: now requires explicit superclass instantiation.)
     '''
+    def __init__(self):
+        self._collate_cache = {}
+
     @property
     def attributes(self):
         '''
@@ -233,7 +295,13 @@ class CO3(metaclass=FormatRegistryMeta):
         '''
         return {}
 
-    def collate(self, key, group=None, *args, **kwargs):
+    def collate(
+        self,
+        key,
+        group                = None,
+        args   : list | None = None,
+        kwargs : dict | None = None,
+    ):
         '''
         Note:
             This method is sensitive to group specification. By default, the provided key
@@ -244,6 +312,12 @@ class CO3(metaclass=FormatRegistryMeta):
         '''
         if key is None:
             return None
+
+        if args is None: args = []
+        if kwargs is None: kwargs = {}
+
+        if (key, group) in self._collate_cache:
+            return self._collate_cache[(key, group)]
 
         if key not in self.key_registry:
             # keys can't match implicit group if that group isn't explicitly provided
@@ -260,7 +334,7 @@ class CO3(metaclass=FormatRegistryMeta):
                 )
                 return None
 
-            return method(self, key, *args, **kwargs)
+            result = method(self, key, *args, **kwargs)
         else:
             method = self.key_registry[key].get(group)
             if method is None:
@@ -269,6 +343,10 @@ class CO3(metaclass=FormatRegistryMeta):
                 )
                 return None
 
-            return method(self, *args, **kwargs)
+            result = method(self, *args, **kwargs)
+
+        self._collate_cache[(key, group)] = result
+
+        return result
 
 

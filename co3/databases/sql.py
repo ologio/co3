@@ -1,3 +1,5 @@
+import sqlalchemy as sa
+
 from co3.database import Database, Engine
 
 from co3.accessors.sql import RelationalAccessor, SQLAccessor
@@ -23,6 +25,12 @@ class SQLDatabase[C: SQLTable](RelationalDatabase[C]):
     _manager_cls  = SQLManager
     _engine_cls   = SQLEngine
 
+    def raw_query(self, connection, query):
+        return SQLEngine.execute(
+            connection,
+            sa.text(query)
+        )
+        
 
 class SQLiteDatabase(SQLDatabase[SQLTable]):
     pass

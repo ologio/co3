@@ -107,7 +107,7 @@ class SQLTable(Relation[SQLTableLike]):
 
     def compose(self, _with: Self, on, outer=False):
         return self.__class__(
-            f'{self.name}+{_with.name}',
+            f'<{self.name}>+<{_with.name}>',
             self.obj.join(_with.obj, on, isouter=outer)
         )
 
