@@ -105,7 +105,7 @@ class Collector[C: Component]:
 
         return receipt
 
-    def collect_inserts(self, receipts:list[str]|None=None):
+    def collect_inserts(self, receipts: list[str] | None = None):
         '''
         Collect insert-ready dictionaries for the core primitive schema. This method is
         effectively a light wrapper around the File and Note-based collection logic

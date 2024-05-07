@@ -19,10 +19,6 @@ class Accessor[C: Component](metaclass=ABCMeta):
     Access wrapper class for complex queries and easy integration with Composer tables.
     Implements high-level access to things like common constrained SELECT queries.
 
-    Parameters:
-        engine: SQLAlchemy engine to use for queries. Engine is initialized dynamically as
-                a property (based on the config) if not provided
-
     Instance variables:
         access_log: time-indexed log of access queries performed
     '''

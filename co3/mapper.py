@@ -388,6 +388,12 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
           automatic discovery structures could help constrain schema definitions to be
           more in-line with the CO3 operational model. That all being said, this is a
           large amount of complexity and should likely be avoided until necessary.
+
+    .. admonition:: Instance variables
+
+        - ``type_compose_cache``: index for previously computed compositions. This index
+                                  is reset if either ``attach`` or ``attach_many`` is
+                                  called to allow possible new type propagation.
     '''
     def __init__(
         self,
@@ -399,6 +405,18 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
         self.attr_compose_map = attr_compose_map
         self.coll_compose_map = coll_compose_map
+
+        self.type_compose_cache = {}
+
+    def attach(self, *args, **kwargs):
+        self.type_compose_cache = {}
+
+        super().attach(*args, **kwargs)
+        
+    def attach_many(self, *args, **kwargs):
+        self.type_compose_cache = {}
+
+        super().attach_many(*args, **kwargs)
 
     def compose(
         self,
@@ -425,6 +443,9 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
         type_ref = co3_ref
         if isinstance(co3_ref, CO3):
             type_ref = co3_ref.__class__
+
+        if type_ref in self.type_compose_cache:
+            return self.type_compose_cache[type_ref]
 
         comp_agg = None
         last_attr_comp = None
@@ -488,5 +509,7 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
             last_attr_comp = attr_comp
             last_coll_comps = coll_list
+
+        self.type_compose_cache[type_ref] = comp_agg
 
         return comp_agg
