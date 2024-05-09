@@ -9,7 +9,7 @@ from co3.engines import SQLEngine
 from co3.components import Relation, SQLTable
 
 
-class RelationalDatabase[C: RelationR](Database):
+class RelationalDatabase[C: Relation](Database[C]):
     '''
     accessor/manager assignments satisfy supertype's type settings;
     ``TabluarAccessor[Self, C]`` is of type ``type[RelationalAccessor[Self, C]]``

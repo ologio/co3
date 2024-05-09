@@ -35,6 +35,7 @@ from inspect import signature
 from typing import Callable, Any
 from collections import defaultdict
 
+from co3            import util
 from co3.co3        import CO3
 from co3.schema     import Schema
 from co3.collector  import Collector
@@ -247,19 +248,22 @@ class Mapper[C: Component]:
             for group_name, group_method in group_dict.items():
                 method_groups[group_method].append(group_name)
 
-            logger.debug(f'Equivalence classes: "{list(method_groups.values())}"')
+            logger.debug(f'Method equivalence classes: "{list(method_groups.values())}"')
 
             # collate for method equivalence classes; only need on representative group to
             # pass to CO3.collate to call the method
             key_collation_data = {}
             for collation_method, collation_groups in method_groups.items():
-                key_method_collation_data = obj.collate(key, group=collation_groups[0])
+                collation_result = obj.collate(key, group=collation_groups[0])
 
-                if key_method_collation_data is None:
+                if not util.types.is_dictlike(collation_result):
                     logger.debug(
-                        f'Equivalence class "{collation_groups}" yielded no data, skipping'
+                        f'Method equivalence class "{collation_groups}" yielded '
+                        + 'non-dict-like result, skipping'
                     )
                     continue
+
+                key_method_collation_data = util.types.dictlike_to_dict(collation_result)
 
                 for collation_group in collation_groups:
                     # gather connective data for collation components
@@ -406,24 +410,24 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
         self.attr_compose_map = attr_compose_map
         self.coll_compose_map = coll_compose_map
 
-        self.type_compose_cache = {}
+        self._compose_cache = {}
 
     def attach(self, *args, **kwargs):
-        self.type_compose_cache = {}
+        self._compose_cache = {}
 
         super().attach(*args, **kwargs)
         
     def attach_many(self, *args, **kwargs):
-        self.type_compose_cache = {}
+        self._compose_cache = {}
 
         super().attach_many(*args, **kwargs)
 
     def compose(
         self,
-        co3_ref:       CO3 | type[CO3],
-        groups: list[str] | None = None,
-        *compose_args,
-        **compose_kwargs,
+        co3_ref        : CO3 | type[CO3],
+        groups         : list[str] | None = None,
+        compose_args   : list | None      = None,
+        compose_kwargs : dict | None      = None,
     ):
         '''
         Compose tables up the type hierarchy, and across through action groups to
@@ -444,8 +448,14 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
         if isinstance(co3_ref, CO3):
             type_ref = co3_ref.__class__
 
-        if type_ref in self.type_compose_cache:
-            return self.type_compose_cache[type_ref]
+        if groups is None: groups = []
+        if compose_args is None: compose_args = []
+        if compose_kwargs is None: compose_kwargs = {}
+
+        idx_tup = (type_ref, tuple(groups))
+        pure_compose = not (compose_args or compose_kwargs)
+        if idx_tup in self._compose_cache and pure_compose:
+            return self._compose_cache[idx_tup]
 
         comp_agg = None
         last_attr_comp = None
@@ -477,39 +487,39 @@ class ComposableMapper[C: ComposableComponent](Mapper[C]):
 
             # compose horizontally with components from provided action groups
             coll_list = []
-            if groups is not None:
-                for group in groups:
-                    coll_comp = self.get_coll_comp(_cls, group=group)
+            for group in groups:
+                coll_comp = self.get_coll_comp(_cls, group=group)
 
-                    if coll_comp is None:
-                        continue
+                if coll_comp is None:
+                    continue
 
-                    # valid collation comps added to coll_list, to be passed to the
-                    # coll_map in the next iteration
-                    coll_list.append(coll_comp)
+                # valid collation comps added to coll_list, to be passed to the
+                # coll_map in the next iteration
+                coll_list.append(coll_comp)
 
-                    # note how the join condition is specified using the non-composite
-                    # `attr_comp` and new `coll_comp`; the composite doesn't typically
-                    # have the same attribute access and needs a ref to a specific comp
-                    if len(signature(self.coll_compose_map).parameters) > 2:
-                        compose_condition = self.coll_compose_map(
-                            attr_comp,
-                            coll_comp,
-                            last_coll_comps
-                        )
-                    else:
-                        compose_condition = self.coll_compose_map(attr_comp, coll_comp)
-
-                    comp_agg = comp_agg.compose(
+                # note how the join condition is specified using the non-composite
+                # `attr_comp` and new `coll_comp`; the composite doesn't typically
+                # have the same attribute access and needs a ref to a specific comp
+                if len(signature(self.coll_compose_map).parameters) > 2:
+                    compose_condition = self.coll_compose_map(
+                        attr_comp,
                         coll_comp,
-                        compose_condition,
-                        *compose_args,
-                        **compose_kwargs,
+                        last_coll_comps
                     )
+                else:
+                    compose_condition = self.coll_compose_map(attr_comp, coll_comp)
+
+                comp_agg = comp_agg.compose(
+                    coll_comp,
+                    compose_condition,
+                    *compose_args,
+                    **compose_kwargs,
+                )
 
             last_attr_comp = attr_comp
             last_coll_comps = coll_list
 
-        self.type_compose_cache[type_ref] = comp_agg
+        if not pure_compose:
+            self._compose_cache[idx_tup] = comp_agg
 
         return comp_agg

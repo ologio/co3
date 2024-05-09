@@ -316,7 +316,8 @@ class CO3(metaclass=FormatRegistryMeta):
         if args is None: args = []
         if kwargs is None: kwargs = {}
 
-        if (key, group) in self._collate_cache:
+        pure_compose = not (args or kwargs)
+        if (key, group) in self._collate_cache and pure_compose:
             return self._collate_cache[(key, group)]
 
         if key not in self.key_registry:
@@ -345,7 +346,8 @@ class CO3(metaclass=FormatRegistryMeta):
 
             result = method(self, *args, **kwargs)
 
-        self._collate_cache[(key, group)] = result
+        if pure_compose:
+            self._collate_cache[(key, group)] = result
 
         return result
 
