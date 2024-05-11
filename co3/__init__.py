@@ -101,19 +101,23 @@ their SQLite FTS counterparts.
 from co3.accessor  import Accessor
 from co3.co3       import CO3, collate
 from co3.collector import Collector
+from co3.component import Component
 #from co3.composer  import Composer
 from co3.database  import Database
+from co3.engine    import Engine
 from co3.indexer   import Indexer
 from co3.manager   import Manager
 from co3.mapper    import Mapper, ComposableMapper
-from co3.component import Component
 from co3.schema    import Schema
-from co3.engine    import Engine
+from co3.resource  import Resource, SelectableResource
+from co3.differ    import Differ
+from co3.syncer    import Syncer
 
-from co3 import accessors
-from co3 import databases
-from co3 import managers
-from co3 import components
+from co3 import util
 from co3 import schemas
 from co3 import engines
-from co3 import util
+from co3 import managers
+from co3 import accessors
+from co3 import databases
+from co3 import resources
+from co3 import components

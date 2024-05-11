@@ -1,5 +1,6 @@
-from typing import TypeVar
+from abc import abstractmethod
 from collections import namedtuple
+from typing import Protocol, TypeVar
 from dataclasses import is_dataclass, asdict
 
 import sqlalchemy as sa
@@ -7,6 +8,12 @@ import sqlalchemy as sa
 # custom types
 SQLTableLike = TypeVar('SQLTableLike', bound=sa.Table | sa.Subquery | sa.Join)
 
+class Equatable(Protocol):
+    """Protocol for annotating comparable types."""
+
+    @abstractmethod
+    def __eq__(self, other: 'Equatable') -> bool:
+        pass
 
 # type checking/conversion methods
 def is_dataclass_instance(obj) -> bool:

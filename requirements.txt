@@ -7,5 +7,6 @@ sphinx-autodoc-typehints
 
 sqlalchemy
 numpy
+wcmatch
 
 pytest

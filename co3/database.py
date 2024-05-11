@@ -53,14 +53,13 @@ might otherwise be handled explicitly, as seen above.
     above) and group up operations as they please, reducing overhead. The Database then
     wraps up a few single-operation contexts where outer connection control is not needed.
 '''
-
 import logging
 
-from co3.accessor import Accessor
-from co3.manager  import Manager
-from co3.indexer  import Indexer
 from co3.engine   import Engine
 from co3.schema   import Schema
+from co3.manager  import Manager
+from co3.indexer  import Indexer
+from co3.accessor import Accessor
 
 logger = logging.getLogger(__name__)
 
