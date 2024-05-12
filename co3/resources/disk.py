@@ -24,7 +24,7 @@ class DiskResource(SelectableResource):
             else:
                 path_union = set(paths.iter_glob_paths(glob, path, **iter_path_kwargs))
 
-            path_agg.union(( (path, head) for head in path_union ))
+            path_agg = path_agg.union(( (path, head) for head in path_union ))
 
         return path_agg
 

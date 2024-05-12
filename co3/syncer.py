@@ -1,9 +1,14 @@
+import time
 import random
 import logging
 from collections import defaultdict
 
+from tqdm import tqdm
+from colorama import Fore, Back, Style
+
 from co3.differ import Differ
 from co3.util.types import Equatable
+from co3.util.generic import text_mod
 
 
 logger = logging.getLogger(__name__)
@@ -11,6 +16,8 @@ logger = logging.getLogger(__name__)
 class Syncer[E: Equatable]:
     def __init__(self, differ: Differ[E]):
         self.differ = differ
+
+        self.should_exit = False
 
     def handle_l_excl(self, key: E, val: list):
         return key
@@ -26,6 +33,9 @@ class Syncer[E: Equatable]:
 
     def process_chunk(self, handler_results):
         return handler_results
+
+    def shutdown(self):
+        self.should_exit = True
 
     def _handle_chunk_items(self, membership_items):
         results = []
@@ -163,10 +173,11 @@ class Syncer[E: Equatable]:
 
         # if chunk time not set, set to the largest value: the chunk cap
         if chunk_time is None:
+            chunk_time = 0
             chunk_size = chunk_cap
         else:
             # otherwise, assume 1s per item up to the cap size
-            chunk_size = min(chunk_time, chunk_cap)
+            chunk_size = max(min(chunk_time, chunk_cap), 1)
 
         # chunk loop variables
         chunk_timer = 0   
@@ -181,20 +192,20 @@ class Syncer[E: Equatable]:
         )
 
         with pbar as _:
-            while remaining > 0:
-                time_pcnt = chunk_time_used / max(chunk_time, 1) * 100
+            while remaining > 0 and not self.should_exit:
+                time_pcnt = chunk_timer/chunk_time*100 if chunk_time else 100
                 pbar.set_description(
                     f'Adaptive chunked sync [size {chunk_size} (max {chunk_cap})] '
-                    f'[prev chunk {chunk_time_used:.2f}s/{chunk_time}s ({time_pcnt:.2f}%)]'
+                    f'[prev chunk {chunk_timer:.2f}s/{chunk_time}s ({time_pcnt:.2f}%)]'
                 )
 
                 # time the handler & processing sequence
                 chunk_time_start = time.time()
 
-                start_idx = limit - remaining
+                start_idx = item_limit - remaining
                 chunk_items = items[start_idx:start_idx+chunk_size]
                 handler_results = self._handle_chunk_items(chunk_items)
-                results.extend(self.process_chunk(handler_results))
+                chunk_results.extend(self.process_chunk(handler_results))
 
                 chunk_timer = time.time() - chunk_time_start
 
@@ -209,25 +220,36 @@ class Syncer[E: Equatable]:
 
                 # re-calculate the chunk size with a simple EMA
                 s_per_item = chunk_timer / chunk_size
-                new_target = int(chunk_time / s_per_item)
-                chunk_size = 0.5*new_target + 0.5*chunk_size
+                new_target = chunk_time / s_per_item
+                chunk_size = int(0.5*new_target + 0.5*chunk_size)
 
                 # apply the chunk cap and clip by remaining items
                 chunk_size = min(min(chunk_size, chunk_cap), remaining)
 
                 # ensure chunk size is >= 1 to prevent loop stalling
                 chunk_size = max(chunk_size, 1)
-                
-        avg_chunk_size = chunk_report['size'] / chunk_report['count']
-        avg_chunk_time = chunk_report['time'] / chunk_report['count']
-        avg_time_match = avg_chunk_time / chunk_5ime
 
-        logger.info(f'Sync report:                                                     ')
-        logger.info(f'->  Total chunks          : {chunk_report["count"]}              ')
-        logger.info(f'->  Total items processed : {chunk_report["size"]} / {limit}     ')
-        logger.info(f'->  Total time spent      : {chunk_report["timer"]:.2f}s         ')
-        logger.info(f'->  Average chunk size    : {avg_chunk_size:.2f}                 ')
-        logger.info(f'->  Average time/chunk    : {avg_chunk_time:.2f}s / {chunk_time}s')
-        logger.info(f'->  Average time match    : {avg_time_match:.2f}%                ')
+        if self.should_exit:
+            logger.info(text_mod('Syncer received interrupt, sync loop exiting early', Fore.BLACK, Back.RED))
+                
+        avg_chunk_size = chunk_report['size'] / max(chunk_report['count'], 1)
+        avg_chunk_time = chunk_report['timer'] / max(chunk_report['count'], 1)
+        avg_time_match = avg_chunk_time / chunk_time if chunk_time else 1
+
+        report_text = [
+            f'->  Total chunks          : {chunk_report["count"]}              ',
+            f'->  Total items processed : {chunk_report["size"]} / {item_limit}',
+            f'->  Total time spent      : {chunk_report["timer"]:.2f}s         ',
+            f'->  Average chunk size    : {avg_chunk_size:.2f}                 ',
+            f'->  Average time/chunk    : {avg_chunk_time:.2f}s / {chunk_time}s',
+            f'->  Average time match    : {avg_time_match*100:.2f}%            ',
+        ]
+
+        pad = 50
+        color_args = []
+
+        logger.info(text_mod('Sync report', Style.BRIGHT, Fore.WHITE, Back.BLUE, pad=pad))
+        for line in report_text:
+            logger.info(text_mod(line, *color_args, pad=pad))
             
         return chunk_results
