@@ -11,6 +11,8 @@ from co3.accessor import Accessor
 logger = logging.getLogger(__name__)
 
 class VSSAccessor(Accessor):
+    _model_cls = None
+
     def __init__(self, cache_path):
         super().__init__()
 
@@ -35,8 +37,7 @@ class VSSAccessor(Accessor):
     @property
     def model(self):
         if self._model is None:
-            # model trained with 128 token seqs
-            self._model = SentenceTransformer('sentence-transformers/all-MiniLM-L12-v2')
+            self._model = self._model_cls()
         return self._model
 
     @property
@@ -60,12 +61,8 @@ class VSSAccessor(Accessor):
         index_name : str,
         query      : str,
         limit      : int = 10,
-        score_threshold = 0.5,
+        score_threshold  = 0.5,
     ):
-        '''
-        Parameters:
-            index_name: one of ['chunks','blocks','notes']
-        '''
         if not query:
             return None
 

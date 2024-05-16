@@ -1,27 +1,49 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "wheel", "setuptools-git-versioning>=2.0,<3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "co3"
-version = "0.1.1"
-authors = [
-  { name="Sam Griesemer", email="samgriesemer@gmail.com" },
-]
-description = "Lightweight ORM"
+description = "Lightweight Python ORM for hierarchical storage management"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
+dynamic = ["version"]
+#license = {file = "LICENSE"}
+authors = [
+  { name="Sam Griesemer", email="samgriesemer+git@gmail.com" },
+]
+keywords = ["database", "orm"]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
 ]
 dependencies = [
-    "tqdm"
+    "tqdm",
+    "wcmatch",
+    "numpy",
+    "sqlalchemy",
+    "colorama",
 ]
 
-[tool.setuptools.packages.find]
-#where = ["localsys"] # this is too deeply nested, need to remain at root level & use
-#include; by default, `where` is `.`
-include = ["co3*"] # pattern to match package names 
+[project.optional-dependencies]
+tests = ["pytest"]
+docs = [
+    "sphinx",
+    "sphinx-togglebutton",
+    "sphinx-autodoc-typehints",
+    "furo",
+    "myst-parser",
+]
 
+[project.urls]
+Homepage = "https://doc.olog.io/co3"
+Documentation = "https://doc.olog.io/co3"
+Repository = "https://git.olog.io/olog/co3"
+Issues = "https://git.olog.io/olog/co3/issues"
+
+
+[tool.setuptools.packages.find]
+include = ["co3*"] # pattern to match package names 

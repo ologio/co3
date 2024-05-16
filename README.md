@@ -1,35 +1,35 @@
 # Overview
-`co3` is a package for file conversion and associated database operations. The `CO3` base class
-provides a standard interface for performing conversions, preparing inserts, and
-interacting with database schemas that mirror the class hierarchy.
+`co3` is a lightweight Python ORM for hierarchical storage management. It implements a
+general type system for defining database components like relations, schemas, engines,
+etc. Objects inheriting from the `CO3` base class can then define data transformations
+that connect to database components, and can be automatically collected for coordinated
+database insertion.
 
-Simplified description of the operational model:
+`co3` attempts to provide a general interface for interacting with a storage media (e.g.,
+database, pickled objects, VSS framework, in-memory key-value stores, etc). The following
+top-level classes capture the bulk of the operational model:
 
-**Goal**: interact with a storage medium (database, pickled structure, VSS framework) with
-a known schema.
+- **Database**: reference to a storage medium, with an `Accessor` for accessing data,
+  `Manager` for managing database state, and an `Engine` for managing connections and
+  external operations.
+- **Accessor**: provides access to stored items in a `Database`, typically via a supported
+  `select` operation over known `Component` types
+- **Manager**: manages database storage state (e.g., supported inserts or database sync
+  operations)
+- **Mapper**: associates `CO3` types with `Schema` components, and provides automatic
+  collection and composition operations for supported items
+- **Collector**: collects data from defined `CO3` type transformations and prepares for
+  `Database` insert operations
+- **Component**: atomic storage groups for databases (i.e., generalized notion of a
+  "relation" in relational algebra).
+- **Indexer**: automatic caching of supported access queries to a `Database`
+- **Schema**: general schema analog for grouping related `Component` sets
+- **Differ**: facilitates set operations on results from selectable resources (e.g.,
+  automatic comparison between file data on disk and file rows in a SQL database)
+- **Syncer**: generalized syncing procedure for items between data resources (e.g.,
+  syncing new, modified, and deleted files from disk to a SQL database that stores file
+  metadata).
 
-- **Accessor** to provide access to stored items
-- **Composer** to compose common access points (e.g., JOINed tables)
-- **Indexer** to index/cache access queries
-- **Manager** to manage storage state (e.g., supported inserts, database syncs)
-- **Collector** to collect data for updating storage state
-- **Database** to collect data for updating storage state
-- **Mapper** to collect data for updating storage state
-- **Component** to collect data for updating storage state
+The **CO3** an abstract base class then makes it easy to integrate this model with regular
+Python object hierarchies that can be mapped to a storage schema.
 
-**CO3** is an abstract base class that makes it easy to integrate this model with object
-hierarchies that mirror a storage schema.
-
-# Detailed structural breakdown
-There are a few pillars of the CO3 model that meaningfully group up functionality:
-
-- Database: generic to a Component type, provides basic connection to a database at a
-  specific address/location. The explicit Component type makes it easy to hook into
-  appropriately typed functional objects:
-  * Manager: generic to a Component and Database type, provides a supported set of
-    state-modifying operations to a constituent database
-  * Accessor: generic to a Component and Database type, provides a supported set of
-    state inspection operations on a constituent database
-  * Indexer: 
-- Mapper: generic to a Component, serves as the fundamental connective component between
-  types in the data representation hierarchy (CO3 subclasses) and database Components.

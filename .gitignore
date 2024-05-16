@@ -1,7 +1,7 @@
 # generic py
 __pycache__/
 .pytest_cache/
-localsys.egg-info/
+*.egg-info/
 .ipynb_checkpoints/
 .pytest_cache/
 .python-version
@@ -12,3 +12,7 @@ build/
 docs/_autoref/
 docs/_autosummary/
 docs/_build/
+
+# local
+notebooks/
+/Makefile
