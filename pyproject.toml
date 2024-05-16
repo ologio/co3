@@ -2,6 +2,9 @@
 requires = ["setuptools", "wheel", "setuptools-git-versioning>=2.0,<3"]
 build-backend = "setuptools.build_meta"
 
+[tool.setuptools-git-versioning]
+enabled = true
+
 [project]
 name = "co3"
 description = "Lightweight Python ORM for hierarchical storage management"
