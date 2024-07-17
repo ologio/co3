@@ -1,12 +1,11 @@
-'''
-Component
-
-General wrapper for storage components to be used in various database contexts. Relations
-can be thought of generally as named data containers/entities serving as a fundamental
-abstractions within particular storage protocols.
-'''
-
 class Component[T]:
+    '''
+    Component
+
+    General wrapper for storage components to be used in various database contexts. Relations
+    can be thought of generally as named data containers/entities serving as a fundamental
+    abstractions within particular storage protocols.
+    '''
     def __init__(self, name, obj: T):
         self.name = name
         self.obj  = obj
@@ -19,4 +18,3 @@ class Component[T]:
 
     def get_attributes(self):
         raise NotImplementedError
-

@@ -1,10 +1,12 @@
+#from co3.resources.disk import DiskResource
+
 from pathlib import Path
 
 from co3.util import paths
-from co3.resource import SelectableResource
+from co3.resource import SelectableDomain
 
 
-class DiskResource(SelectableResource):
+class DiskDomain(SelectableDomain):
     def select(
         self,
         path_list: str | Path | list[str | Path],

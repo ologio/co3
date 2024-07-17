@@ -5,8 +5,8 @@ etc. Objects inheriting from the `CO3` base class can then define data transform
 that connect to database components, and can be automatically collected for coordinated
 database insertion.
 
-`co3` attempts to provide a general interface for interacting with a storage media (e.g.,
-database, pickled objects, VSS framework, in-memory key-value stores, etc). The following
+`co3` attempts to provide a general interface for interacting with storage media (e.g.,
+databases, pickled objects, VSS framework, in-memory key-value stores, etc). The following
 top-level classes capture the bulk of the operational model:
 
 - **Database**: reference to a storage medium, with an `Accessor` for accessing data,

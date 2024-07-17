@@ -13,7 +13,7 @@ class Engine:
     derivative Engines, like SQLEngine, mostly just wrap another engine-like object, this
     is not the rule. That is, inheriting Engine subtypes shouldn't necessarily expect to
     rely on another object per se, and if such an object is required, _this_ is the class
-    is meant to be skeleton to supports its creation (and not merely a wrapper for some
+    meant to be the skeleton that supports its creation (and not merely a wrapper for some
     other type, although it may appear that way when such a type is in fact readily
     available).
 

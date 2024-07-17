@@ -75,7 +75,7 @@ class SQLManager(RelationalManager[SQLTable]):
     '''
     def __init__(self, *args, **kwargs):
         '''
-        The insert lock is a *reentrant lock*, meaning the same thread can acquire the
+        The insert lock is a *re-entrant lock*, meaning the same thread can acquire the
         lock again without deadlocking (simplifying across methods of this class that
         need it).
         '''
@@ -112,11 +112,13 @@ class SQLManager(RelationalManager[SQLTable]):
     def insert(
         self,
         connection,
-        component,
+        component: SQLTable,
         inserts: list[dict],
         commit=True
     ):
         '''
+        Insert a group of 
+
         Parameters:
         '''
         with self._insert_lock:
@@ -134,6 +136,13 @@ class SQLManager(RelationalManager[SQLTable]):
         '''
         Perform provided table inserts, aligning the insert format of
         ``Collector.collect_inserts()``.
+
+        Note that the regular ``insert`` actually supports the usual notion of a "bulk
+        insert," inserting many entries under a single table. This method simply supports
+        the same but across multiple tables. It does so by just making calls to
+        ``insert()`` after grouping entries for each component in the provided ``inserts``
+        dict, only committing the transaction after all components inserts have been
+        staged.
 
         Parameters:
             inserts: component-indexed dictionary of insert lists
